@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
-import axios from "axios";
+import React, { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import axiosInstance from "../utils/axiosConfig";
 
 type AuthToken = string | null;
 
@@ -25,8 +25,8 @@ function Login() {
   }, [navigate, location]);
 
   const handleLogin = () => {
-    axios
-      .get("http://localhost:3000/auth/upstox")
+    axiosInstance
+      .get("/auth/upstox")
       .then((response) => {
         window.location.href = response.data.url;
       })
