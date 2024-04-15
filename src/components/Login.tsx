@@ -12,14 +12,15 @@ function Login() {
   React.useEffect(() => {
     // Extract the token from URL parameters
     const urlParams = new URLSearchParams(location.search);
-    const token: AuthToken = urlParams.get('token');
+    const token: AuthToken = urlParams.get("token");
 
     if (token) {
       // Save the token for further API calls
-      localStorage.setItem('token', token);
+      localStorage.setItem("token", token);
+      console.log("token set ", token);
 
       // Redirect to the dashboard or the previous page they were trying to visit
-      const from = location.state?.from?.pathname || '/dashboard';
+      const from = location.state?.from?.pathname || "/dashboard";
       navigate(from, { replace: true });
     }
   }, [navigate, location]);
