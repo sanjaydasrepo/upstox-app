@@ -36,6 +36,7 @@ interface StrikePrices {
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [strikePrices, setStrikePrices] = useState<StrikePrices | null>(null);
+  const [portfolio, setPortfolio] = useState<any | null>(null);
   // Dashboard component logic
   const handleLogout = () => {
     localStorage.setItem("token", "");
@@ -61,6 +62,16 @@ const Dashboard: React.FC = () => {
 
     return () => {
       socket.off("strikePrices");
+    };
+  }, []);
+  useEffect(() => {
+    socket.on("portfolio", (data: any) => {
+      setPortfolio(data);
+      console.log("data port ", JSON.parse(data));
+    });
+
+    return () => {
+      socket.off("portfolio");
     };
   }, []);
 
