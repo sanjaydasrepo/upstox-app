@@ -2,6 +2,8 @@ import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance from "../utils/axiosConfig";
 import io from "socket.io-client";
+import ProfitLossCard, { ProfitLossCardProps } from "./ProfitLossCard";
+import Navbar from "./NavBar";
 
 const socket = io("http://localhost:3000");
 
@@ -37,6 +39,7 @@ const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [strikePrices, setStrikePrices] = useState<StrikePrices | null>(null);
   const [portfolio, setPortfolio] = useState<any | null>(null);
+  const [positions, setPositions] = useState<ProfitLossCardProps | null>(null);
   // Dashboard component logic
   const handleLogout = () => {
     localStorage.setItem("token", "");
@@ -50,6 +53,20 @@ const Dashboard: React.FC = () => {
         },
       });
       console.log("res p", resp);
+    } catch (error) {
+      console.error("Error", error);
+    }
+  };
+  const getPositions = async () => {
+    try {
+      const resp = await axiosInstance.get(`/upstox/positions`, {
+        headers: {
+          Authorization: `Bearer ` + localStorage.getItem("token"),
+        },
+      });
+      if (resp) {
+        setPositions(resp.data);
+      }
     } catch (error) {
       console.error("Error", error);
     }
@@ -75,6 +92,10 @@ const Dashboard: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    handleStart();
+    getPositions();
+  }, []);
   const handleBuyOption = (option: any) => {
     // Logic to buy the selected option
     console.log(`Buying option: ${option}`);
@@ -82,74 +103,79 @@ const Dashboard: React.FC = () => {
 
   return (
     <>
-      <div>
-        <button onClick={handleLogout}> Logout </button>
-        <button onClick={handleStart}> Start </button>
-      </div>
+      <div className="">
+        <Navbar handleLogout={handleLogout} />
+        <div className="p-16">
+          {strikePrices ? (
+            <>
+              <div className="flex justify-center mb-4">
+                <ProfitLossCard
+                  openPositions={positions?.openPositions}
+                  totalProfitLoss={positions?.totalProfitLoss}
+                />
+              </div>
 
-      <div className="p-4">
-        {strikePrices ? (
-          <>
-            <div className="flex justify-center mb-4">
-              <button
-                className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
-                onClick={() => handleBuyOption(strikePrices.atmStrike)}
-              >
-                ATM: {strikePrices.atmStrike}
-              </button>
-            </div>
-            <div className="flex justify-between mb-4">
-              <div>
-                {strikePrices.itmCallStrikes.map((option) => (
-                  <button
-                    key={option.instrument_key}
-                    className="bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                    onClick={() => handleBuyOption(option)}
-                  >
-                    ITM CE: {option.strike_price}
-                  </button>
-                ))}
+              <div className="flex justify-center mb-4">
+                <button
+                  className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
+                  onClick={() => handleBuyOption(strikePrices.atmStrike)}
+                >
+                  ATM: {strikePrices.atmStrike}
+                </button>
               </div>
-              <div>
-                {strikePrices.otmCallStrikes.map((option) => (
-                  <button
-                    key={option.instrument_key}
-                    className="bg-red-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                    onClick={() => handleBuyOption(option)}
-                  >
-                    OTM CE: {option.strike_price}
-                  </button>
-                ))}
+              <div className="flex justify-between mb-4">
+                <div>
+                  {strikePrices.itmCallStrikes.map((option) => (
+                    <button
+                      key={option.instrument_key}
+                      className="bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2"
+                      onClick={() => handleBuyOption(option)}
+                    >
+                      ITM CE: {option.strike_price}
+                    </button>
+                  ))}
+                </div>
+                <div>
+                  {strikePrices.otmCallStrikes.map((option) => (
+                    <button
+                      key={option.instrument_key}
+                      className="bg-red-500 text-white px-4 py-2 rounded mr-2 mb-2"
+                      onClick={() => handleBuyOption(option)}
+                    >
+                      OTM CE: {option.strike_price}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-            <div className="flex justify-between">
-              <div>
-                {strikePrices.itmPutStrikes.map((option) => (
-                  <button
-                    key={option.instrument_key}
-                    className="bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                    onClick={() => handleBuyOption(option)}
-                  >
-                    ITM PE: {option.strike_price}
-                  </button>
-                ))}
-              </div>{" "}
-              <div>
-                {strikePrices.otmPutStrikes.map((option) => (
-                  <button
-                    key={option.instrument_key}
-                    className="bg-red-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                    onClick={() => handleBuyOption(option)}
-                  >
-                    OTM PE: {option.strike_price}
-                  </button>
-                ))}
+              <div className="flex justify-between">
+                <div>
+                  {strikePrices.itmPutStrikes.map((option) => (
+                    <button
+                      key={option.instrument_key}
+                      className="bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2"
+                      onClick={() => handleBuyOption(option)}
+                    >
+                      ITM PE: {option.strike_price}
+                    </button>
+                  ))}
+                </div>{" "}
+                <div>
+                  {strikePrices.otmPutStrikes.map((option) => (
+                    <button
+                      key={option.instrument_key}
+                      className="bg-red-500 text-white px-4 py-2 rounded mr-2 mb-2"
+                      onClick={() => handleBuyOption(option)}
+                    >
+                      OTM PE: {option.strike_price}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          </>
-        ) : (
-          <p>Loading strike prices...</p>
-        )}
+            </>
+          ) : (
+            <p>Loading strike prices...</p>
+          )}
+        </div>
       </div>
     </>
   );

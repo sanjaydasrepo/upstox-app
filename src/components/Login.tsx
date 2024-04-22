@@ -35,18 +35,13 @@ function Login() {
   };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1 className="border">Upstox API Token</h1>
-        {token ? (
-          <div>
-            <h2>Token:</h2>
-            <p>{token}</p>
-          </div>
-        ) : (
-          <button onClick={handleLogin}>Login</button>
-        )}
-      </header>
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-purple-500 to-indigo-500">
+      <button
+        className="bg-white text-purple-600 font-bold py-4 px-8 rounded-lg shadow-md hover:bg-purple-600 hover:text-white transition-colors duration-300"
+        onClick={handleLogin}
+      >
+        Login
+      </button>
     </div>
   );
 }
