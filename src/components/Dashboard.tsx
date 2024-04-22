@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import axiosInstance from "../utils/axiosConfig";
+import axiosInstance, { BASE_URL } from "../utils/axiosConfig";
 import io from "socket.io-client";
 import ProfitLossCard, { ProfitLossCardProps } from "./ProfitLossCard";
 import Navbar from "./NavBar";
 
-const socket = io("http://localhost:3000");
+const socket = io(BASE_URL);
 
 interface OptionData {
   name: string;
@@ -28,17 +28,17 @@ interface OptionData {
 }
 
 interface StrikePrices {
-  atmStrike: number;
+  atmStrike: any;
   itmCallStrikes: OptionData[];
   itmPutStrikes: OptionData[];
   otmCallStrikes: OptionData[];
   otmPutStrikes: OptionData[];
+  atmStrikes: OptionData[];
 }
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [strikePrices, setStrikePrices] = useState<StrikePrices | null>(null);
-  const [portfolio, setPortfolio] = useState<any | null>(null);
   const [positions, setPositions] = useState<ProfitLossCardProps | null>(null);
   // Dashboard component logic
   const handleLogout = () => {
@@ -83,7 +83,8 @@ const Dashboard: React.FC = () => {
   }, []);
   useEffect(() => {
     socket.on("portfolio", (data: any) => {
-      setPortfolio(data);
+      // setPortfolio(data);
+      getPositions();
       console.log("data port ", JSON.parse(data));
     });
 
@@ -91,7 +92,6 @@ const Dashboard: React.FC = () => {
       socket.off("portfolio");
     };
   }, []);
-
   useEffect(() => {
     handleStart();
     getPositions();
@@ -101,80 +101,75 @@ const Dashboard: React.FC = () => {
     console.log(`Buying option: ${option}`);
   };
 
+  const getPricesView = (color: string, data?: OptionData[], type?: string) => {
+    return (
+      <div
+        className={`flex flex-wrap max-w-[180px] ${
+          type === "CE" ? "justify-start" : "justify-end"
+        }`}
+      >
+        {strikePrices &&
+          data?.map((option) => (
+            <button
+              key={option?.instrument_key}
+              className={`${color} text-white px-4 py-2 rounded mr-2 mb-2`}
+              onClick={() => handleBuyOption(option)}
+            >
+              {option.strike_price} {type}
+            </button>
+          ))}
+      </div>
+    );
+  };
   return (
     <>
-      <div className="">
-        <Navbar handleLogout={handleLogout} />
-        <div className="p-16">
-          {strikePrices ? (
-            <>
-              <div className="flex justify-center mb-4">
-                <ProfitLossCard
-                  openPositions={positions?.openPositions}
-                  totalProfitLoss={positions?.totalProfitLoss}
-                />
+      <Navbar handleLogout={handleLogout} />
+      <div className="flex flex-col items-center">
+        <div className="flex justify-center mb-4">
+          <ProfitLossCard
+            openPositions={positions?.openPositions}
+            totalProfitLossPercentage={positions?.totalProfitLossPercentage}
+            totalProfitLoss={positions?.totalProfitLoss}
+            totalInvested={positions?.totalInvested}
+          />
+        </div>
+        <div>
+          <div className="flex justify-center items-center bg-white p-4 rounded-lg shadow-md">
+            <div className="flex flex-col justify-between max-w-md space-y-4">
+              <div className="flex justify-between items-center">
+                {getPricesView(
+                  "bg-green-500",
+                  strikePrices?.otmCallStrikes,
+                  "CE"
+                )}
+                {getPricesView("bg-red-500", strikePrices?.itmPutStrikes, "PE")}
               </div>
-
-              <div className="flex justify-center mb-4">
+              <div className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg flex justify-between">
                 <button
-                  className="bg-blue-500 text-white px-4 py-2 rounded mr-2"
-                  onClick={() => handleBuyOption(strikePrices.atmStrike)}
+                  key={strikePrices?.atmStrikes[0].instrument_key}
+                  className={`text-white px-4 py-2 rounded mr-2 bg-blue-300`}
+                  onClick={() => {}}
                 >
-                  ATM: {strikePrices.atmStrike}
+                  {strikePrices?.atmStrikes[0].strike_price} {strikePrices?.atmStrikes[0].instrument_type} 
+                </button>
+                <button
+                  key={strikePrices?.atmStrikes[1].instrument_key}
+                  className={`text-white px-4 py-2 rounded mr-2 bg-blue-300`}
+                  onClick={() => {}}
+                >
+                  {strikePrices?.atmStrikes[1].strike_price} {strikePrices?.atmStrikes[1].instrument_type}
                 </button>
               </div>
-              <div className="flex justify-between mb-4">
-                <div>
-                  {strikePrices.itmCallStrikes.map((option) => (
-                    <button
-                      key={option.instrument_key}
-                      className="bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                      onClick={() => handleBuyOption(option)}
-                    >
-                      ITM CE: {option.strike_price}
-                    </button>
-                  ))}
-                </div>
-                <div>
-                  {strikePrices.otmCallStrikes.map((option) => (
-                    <button
-                      key={option.instrument_key}
-                      className="bg-red-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                      onClick={() => handleBuyOption(option)}
-                    >
-                      OTM CE: {option.strike_price}
-                    </button>
-                  ))}
-                </div>
+              <div className="flex justify-between items-center">
+                {getPricesView(
+                  "bg-green-500",
+                  strikePrices?.itmCallStrikes,
+                  "CE"
+                )}
+                {getPricesView("bg-red-500", strikePrices?.otmPutStrikes, "PE")}
               </div>
-              <div className="flex justify-between">
-                <div>
-                  {strikePrices.itmPutStrikes.map((option) => (
-                    <button
-                      key={option.instrument_key}
-                      className="bg-green-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                      onClick={() => handleBuyOption(option)}
-                    >
-                      ITM PE: {option.strike_price}
-                    </button>
-                  ))}
-                </div>{" "}
-                <div>
-                  {strikePrices.otmPutStrikes.map((option) => (
-                    <button
-                      key={option.instrument_key}
-                      className="bg-red-500 text-white px-4 py-2 rounded mr-2 mb-2"
-                      onClick={() => handleBuyOption(option)}
-                    >
-                      OTM PE: {option.strike_price}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : (
-            <p>Loading strike prices...</p>
-          )}
+            </div>
+          </div>
         </div>
       </div>
     </>
