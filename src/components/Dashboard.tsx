@@ -36,6 +36,13 @@ interface StrikePrices {
   otmPutStrikes: OptionData[];
   atmStrikes: OptionData[];
 }
+interface ChargesPayload {
+  instrument_token: string;
+  quantity: number;
+  product: string;
+  transaction_type: string;
+  price: number;
+}
 const INSTRUMENT_KEY = "instruments";
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
@@ -122,9 +129,26 @@ const Dashboard: React.FC = () => {
     }
     getData();
   }, []);
-  const handleBuyOption = (option: any) => {
+  const handleBuyOption = async (option: OptionData) => {
     // Logic to buy the selected option
-    console.log(`Buying option: ${option}`);
+    console.log(`Buying option:`, option);
+
+    // const params : ChargesPayload = {
+    //   instrument_token:option.trading_symbol ,
+    //   price:option.strike_price ,
+    // }
+    // try {
+    //   const resp = await axiosInstance.get(`/upstox/charges`, {
+    //     headers: {
+    //       Authorization: `Bearer ` + localStorage.getItem("token"),
+    //     },
+    //   });
+    //   if (resp) {
+    //     setPositions(resp.data);
+    //   }
+    // } catch (error) {
+    //   console.error("Error", error);
+    // }
   };
 
   const getPricesView = (color: string, data?: OptionData[], type?: string) => {

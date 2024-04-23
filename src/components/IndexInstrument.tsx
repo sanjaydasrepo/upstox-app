@@ -25,8 +25,8 @@ const IndexInstruments: React.FC<RadioButtonsProps> = ({
         <input
           type="radio"
           className="form-radio h-5 w-5 text-blue-600"
-          value="NSE_INDEX|Nifty 50"
-          checked={selectedOption === "NSE_INDEX|Nifty 50"}
+          value="NSE_INDEX|Nifty Bank"
+          checked={selectedOption === "NSE_INDEX|Nifty Bank"}
           onChange={handleOptionChange}
         />
         <span className="ml-2 text-sm">Bank Nifty</span>
