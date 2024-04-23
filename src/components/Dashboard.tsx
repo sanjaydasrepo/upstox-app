@@ -4,6 +4,7 @@ import axiosInstance, { BASE_URL } from "../utils/axiosConfig";
 import io from "socket.io-client";
 import ProfitLossCard, { ProfitLossCardProps } from "./ProfitLossCard";
 import Navbar from "./NavBar";
+import IndexInstruments from "./IndexInstrument";
 
 const socket = io(BASE_URL);
 
@@ -35,26 +36,45 @@ interface StrikePrices {
   otmPutStrikes: OptionData[];
   atmStrikes: OptionData[];
 }
-
+const INSTRUMENT_KEY = "instruments";
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [strikePrices, setStrikePrices] = useState<StrikePrices | null>(null);
   const [positions, setPositions] = useState<ProfitLossCardProps | null>(null);
+  const [selectedOption, setSelectedOption] = useState("");
+
   // Dashboard component logic
   const handleLogout = () => {
     localStorage.setItem("token", "");
     navigate("/login", { replace: true });
   };
   const handleStart = async () => {
-    try {
-      const resp = await axiosInstance.get(`/upstox/start`, {
-        headers: {
-          Authorization: `Bearer ` + localStorage.getItem("token"),
-        },
-      });
-      console.log("res p", resp);
-    } catch (error) {
-      console.error("Error", error);
+    const payload = localStorage.getItem(INSTRUMENT_KEY);
+    const instruments = payload ? JSON.parse(payload) : [];
+
+    if (instruments.length > 0) {
+      try {
+        const resp = await axiosInstance.post(
+          `/upstox/subscribe`,
+          {
+            instrumentKeys: instruments,
+          },
+          {
+            headers: {
+              Authorization: `Bearer ` + localStorage.getItem("token"),
+            },
+          }
+        );
+
+        // body: instruments,
+        console.log("res p", resp);
+        return resp;
+      } catch (error) {
+        return error;
+        console.error("Error", error);
+      }
+    } else {
+      alert("No inst found");
     }
   };
   const getPositions = async () => {
@@ -84,8 +104,9 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     socket.on("portfolio", (data: any) => {
       // setPortfolio(data);
-      getPositions();
-      console.log("data port ", JSON.parse(data));
+      getPositions().then(() => {
+        console.log("data port ", JSON.parse(data));
+      });
     });
 
     return () => {
@@ -93,8 +114,13 @@ const Dashboard: React.FC = () => {
     };
   }, []);
   useEffect(() => {
-    handleStart();
-    getPositions();
+    async function getData() {
+      handleStart();
+      setTimeout(() => {
+        getPositions();
+      }, 1000);
+    }
+    getData();
   }, []);
   const handleBuyOption = (option: any) => {
     // Logic to buy the selected option
@@ -121,10 +147,22 @@ const Dashboard: React.FC = () => {
       </div>
     );
   };
+
+  const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    localStorage.setItem(INSTRUMENT_KEY, JSON.stringify([event.target.value]));
+    setSelectedOption(event.target.value);
+    handleStart();
+  };
   return (
     <>
       <Navbar handleLogout={handleLogout} />
       <div className="flex flex-col items-center">
+        <div>
+          <IndexInstruments
+            handleOptionChange={handleOptionChange}
+            selectedOption={selectedOption}
+          />
+        </div>
         <div className="flex justify-center mb-4">
           <ProfitLossCard
             openPositions={positions?.openPositions}
@@ -150,14 +188,16 @@ const Dashboard: React.FC = () => {
                   className={`text-white px-4 py-2 rounded mr-2 bg-blue-300`}
                   onClick={() => {}}
                 >
-                  {strikePrices?.atmStrikes[0].strike_price} {strikePrices?.atmStrikes[0].instrument_type} 
+                  {strikePrices?.atmStrikes[0].strike_price}{" "}
+                  {strikePrices?.atmStrikes[0].instrument_type}
                 </button>
                 <button
                   key={strikePrices?.atmStrikes[1].instrument_key}
                   className={`text-white px-4 py-2 rounded mr-2 bg-blue-300`}
                   onClick={() => {}}
                 >
-                  {strikePrices?.atmStrikes[1].strike_price} {strikePrices?.atmStrikes[1].instrument_type}
+                  {strikePrices?.atmStrikes[1].strike_price}{" "}
+                  {strikePrices?.atmStrikes[1].instrument_type}
                 </button>
               </div>
               <div className="flex justify-between items-center">

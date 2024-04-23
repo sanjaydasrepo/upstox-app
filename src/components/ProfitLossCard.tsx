@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React from "react";
 export interface PositionCurrentData {
   average_price: number;
   buy_price: number;
@@ -45,7 +45,7 @@ const ProfitLossCard: React.FC<ProfitLossCardProps> = ({
   openPositions,
 }) => {
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
+    <div className="bg-white rounded-lg shadow-md p-6 mt-4">
       <div className="text-center mb-6">
         {/* <h2 className="text-2xl font-bold text-gray-800">Total Profit/Loss</h2> */}
         <p className="text-4xl font-bold text-green-500 mt-2">
@@ -54,7 +54,7 @@ const ProfitLossCard: React.FC<ProfitLossCardProps> = ({
         <p className="text-4xl font-bold text-green-500 mt-2">
           Pnl: {totalProfitLossPercentage?.toFixed(2)}%
         </p>
-        <p className="text-xl font-bold text-green-500 mt-2">
+        <p className="text-xl font-bold text-green-500 mt-2">  
           {totalProfitLoss?.toFixed(2)}
         </p>
       </div>
