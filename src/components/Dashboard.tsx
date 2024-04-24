@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { memo, useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import axiosInstance, { BASE_URL } from "../utils/axiosConfig";
 import io from "socket.io-client";
@@ -43,12 +43,24 @@ interface ChargesPayload {
   transaction_type: string;
   price: number;
 }
+export interface MarketData {
+  feeds: {
+    [key: string]: {
+      ltpc: {
+        ltp: number;
+        ltt: string;
+        cp: number;
+      };
+    };
+  };
+}
 const INSTRUMENT_KEY = "instruments";
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
   const [strikePrices, setStrikePrices] = useState<StrikePrices | null>(null);
   const [positions, setPositions] = useState<ProfitLossCardProps | null>(null);
   const [selectedOption, setSelectedOption] = useState("");
+  const [liveData, setMarketLiveData] = useState<MarketData | null>(null);
 
   // Dashboard component logic
   const handleLogout = () => {
@@ -58,19 +70,77 @@ const Dashboard: React.FC = () => {
   const handleStart = async () => {
     const payload = localStorage.getItem(INSTRUMENT_KEY);
     const instruments = payload ? JSON.parse(payload) : [];
-
-    if (instruments.length > 0) {
+    const prevSelOption = localStorage.getItem('prevSelectedOption');
+    const selOption = localStorage.getItem('selectedOption');
+    if (selOption) {
       try {
+        //first unsub prev keys
+        const headers = {
+          headers: {
+            Authorization: `Bearer ` + localStorage.getItem("token"),
+          },
+        }
+        const resp = await axiosInstance.post(
+          `/upstox/subscribe`,
+          {
+            instrumentKeys: [...instruments, prevSelOption].filter(fk => fk !== null),
+            method: 'unsub'
+          },
+          headers
+        );
+        localStorage.setItem(INSTRUMENT_KEY, "");
+
+        if (resp.status === 200) {
+          //initialize state 
+          const respSubs = await axiosInstance.post(
+            `/upstox/subscribe`,
+            {
+              instrumentKeys: [selOption],
+              method: 'sub'
+            },
+            headers
+          );
+          localStorage.setItem('prevSelectedOption', selOption);
+        }
+
+        // body: instruments,
+        console.log("res p", resp);
+        return resp;
+      } catch (error) {
+        return error;
+        console.error("Error", error);
+      }
+    }
+
+  };
+  const handleSubscribe = async (instruments: string[]) => {
+    if (instruments.length > 0) {
+      console.log("Subscribing ins ", instruments);
+      const initialState: MarketData = {
+        feeds: Object.fromEntries(instruments.map(key => [key, {
+          ltpc: {
+            ltp: 0,
+            ltt: '',
+            cp: 0,
+          },
+        }]))
+      };
+      setMarketLiveData(initialState);
+
+      try {
+        const headers = {
+          headers: {
+            Authorization: `Bearer ` + localStorage.getItem("token"),
+          },
+        }
+
         const resp = await axiosInstance.post(
           `/upstox/subscribe`,
           {
             instrumentKeys: instruments,
+            method: 'sub'
           },
-          {
-            headers: {
-              Authorization: `Bearer ` + localStorage.getItem("token"),
-            },
-          }
+          headers
         );
 
         // body: instruments,
@@ -80,10 +150,10 @@ const Dashboard: React.FC = () => {
         return error;
         console.error("Error", error);
       }
-    } else {
-      alert("No inst found");
     }
+
   };
+
   const getPositions = async () => {
     try {
       const resp = await axiosInstance.get(`/upstox/positions`, {
@@ -102,6 +172,12 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     socket.on("strikePrices", (data: StrikePrices) => {
       setStrikePrices(data);
+      const allStkPrices = data.atmStrikes.concat(data.itmCallStrikes, data.itmPutStrikes, data.otmCallStrikes, data.otmPutStrikes);
+      const instruments = allStkPrices.map(sk => sk.instrument_key);
+      // instruments.push(selectedOption);
+      console.log("called this shit ");
+      localStorage.setItem(INSTRUMENT_KEY, JSON.stringify(instruments));
+      handleSubscribe(instruments);
     });
 
     return () => {
@@ -129,6 +205,60 @@ const Dashboard: React.FC = () => {
     }
     getData();
   }, []);
+
+  // console.log('live margett data ', liveData);
+  useEffect(() => {
+
+    socket.on("marketData", (data: MarketData) => {
+      // setPortfolio(data);
+      const instrumentsNp = localStorage.getItem(INSTRUMENT_KEY);
+      const insts = instrumentsNp ? JSON.parse(instrumentsNp) : [];
+      // setMarketLiveData(data);
+      if (insts?.length > 0) {
+        for (const inst of insts) {
+          if (data.feeds.hasOwnProperty(inst) && data.feeds[inst] !== undefined && data.feeds[inst].ltpc !== null) {
+            // console.log("data port maket data ", data.feeds[inst]);
+            setMarketLiveData(v => ({
+              ...v,
+              feeds: {
+                ...v?.feeds,
+                [inst]: data.feeds[inst]
+              }
+            }));
+          }
+          if (liveData && liveData.feeds.hasOwnProperty(inst) && data.feeds.hasOwnProperty(inst) && data.feeds[inst].ltpc.ltp > 0) {
+            // setMarketLiveData(v => ({
+            //   ...v,
+            //   ['feeds']: {
+            //     ...v?.feeds,
+            //     [inst]: data.feeds[inst]
+            //   }
+            // }));
+            // console.log("data port maket data ", data.feeds[inst].ltpc);
+          } else {
+            // setMarketLiveData(v => ({
+            //   ...v,
+            //   ['feeds']: {
+            //     ...v?.feeds,
+            //     [inst]: data.feeds[inst]
+            //   }
+            // }));
+          }
+        }
+      }
+    });
+
+    return () => {
+      socket.off("portfolio");
+    };
+  }, []);
+  useEffect(() => {
+    const selOption = localStorage.getItem('selectedOption');
+    if (selOption) {
+      setSelectedOption(selOption);
+      console.log("selected ", selOption);
+    }
+  }, [])
   const handleBuyOption = async (option: OptionData) => {
     // Logic to buy the selected option
     console.log(`Buying option:`, option);
@@ -138,7 +268,7 @@ const Dashboard: React.FC = () => {
     //   price:option.strike_price ,
     // }
     // try {
-    //   const resp = await axiosInstance.get(`/upstox/charges`, {
+    //   const resp = await axiosInstance.get(`/upstox/charges`, {handleBuyOption
     //     headers: {
     //       Authorization: `Bearer ` + localStorage.getItem("token"),
     //     },
@@ -151,86 +281,77 @@ const Dashboard: React.FC = () => {
     // }
   };
 
-  const getPricesView = (color: string, data?: OptionData[], type?: string) => {
-    return (
-      <div
-        className={`flex flex-wrap max-w-[180px] ${
-          type === "CE" ? "justify-start" : "justify-end"
-        }`}
-      >
-        {strikePrices &&
-          data?.map((option) => (
-            <button
-              key={option?.instrument_key}
-              className={`${color} text-white px-4 py-2 rounded mr-2 mb-2`}
-              onClick={() => handleBuyOption(option)}
-            >
-              {option.strike_price} {type}
-            </button>
-          ))}
-      </div>
-    );
-  };
+  const MemoizedPricesView = React.memo(
+    ({ color, data, type }: { color: string; data?: OptionData[]; type?: string }) => {
+      return (
+        <div className={`flex flex-wrap  ${type === "CE" ? "justify-start" : type === 'PE' ? "justify-end" : 'justify-between'}`}>
+          {data?.map((option, i) => {
+            const mType = type === 'ATM' && i === 0 ? 'CE' : type !== 'ATM' ? type : 'PE'
+            return (
+              <button
+                key={option?.instrument_key}
+                className={`${color} text-white px-4 py-2 rounded mr-2 my-2 w-[180px]`}
+                onClick={() => handleBuyOption(option)}
+              >
+                {option.strike_price} {mType} | {liveData?.feeds[option.instrument_key]?.ltpc?.ltp}
+              </button>
+            )
+          })}
+        </div>
+      );
+    },
+    (prevProps, nextProps) => {
+      // Custom shouldComponentUpdate logic
+      // Perform a deep comparison of props if needed
+      return (
+        prevProps.color === nextProps.color &&
+        JSON.stringify(prevProps.data) === JSON.stringify(nextProps.data) &&
+        prevProps.type === nextProps.type
+      );
+    }
+  );
 
-  const handleOptionChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    localStorage.setItem(INSTRUMENT_KEY, JSON.stringify([event.target.value]));
+
+  const handleOptionChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    // localStorage.setItem(INSTRUMENT_KEY, JSON.stringify([event.target.value]));
     setSelectedOption(event.target.value);
+    localStorage.setItem("selectedOption", event.target.value);
     handleStart();
   };
   return (
     <>
       <Navbar handleLogout={handleLogout} />
-      <div className="flex flex-col items-center">
-        <div>
-          <IndexInstruments
-            handleOptionChange={handleOptionChange}
-            selectedOption={selectedOption}
-          />
+      <div className="flex justify-center w-full border">
+        <div className="flex flex-col">
+          <div>
+            <IndexInstruments
+              handleOptionChange={handleOptionChange}
+              selectedOption={selectedOption}
+            />
+          </div>
+          <div className="flex justify-center mb-4">
+            <ProfitLossCard
+              openPositions={positions?.openPositions}
+              totalProfitLossPercentage={positions?.totalProfitLossPercentage}
+              totalProfitLoss={positions?.totalProfitLoss}
+              totalInvested={positions?.totalInvested}
+            />
+          </div>
         </div>
-        <div className="flex justify-center mb-4">
-          <ProfitLossCard
-            openPositions={positions?.openPositions}
-            totalProfitLossPercentage={positions?.totalProfitLossPercentage}
-            totalProfitLoss={positions?.totalProfitLoss}
-            totalInvested={positions?.totalInvested}
-          />
-        </div>
-        <div>
+
+        <div className="ml-2">
           <div className="flex justify-center items-center bg-white p-4 rounded-lg shadow-md">
             <div className="flex flex-col justify-between max-w-md space-y-4">
               <div className="flex justify-between items-center">
-                {getPricesView(
-                  "bg-green-500",
-                  strikePrices?.otmCallStrikes,
-                  "CE"
-                )}
-                {getPricesView("bg-red-500", strikePrices?.itmPutStrikes, "PE")}
+                <MemoizedPricesView color="bg-green-500" data={strikePrices?.otmCallStrikes} type="CE" />
+                <MemoizedPricesView color="bg-red-500" data={strikePrices?.itmPutStrikes} type="PE" />
               </div>
-              <div className="bg-gray-200 text-gray-800 font-bold py-2 px-4 rounded-lg flex justify-between">
-                <button
-                  key={strikePrices?.atmStrikes[0].instrument_key}
-                  className={`text-white px-4 py-2 rounded mr-2 bg-blue-300`}
-                  onClick={() => {}}
-                >
-                  {strikePrices?.atmStrikes[0].strike_price}{" "}
-                  {strikePrices?.atmStrikes[0].instrument_type}
-                </button>
-                <button
-                  key={strikePrices?.atmStrikes[1].instrument_key}
-                  className={`text-white px-4 py-2 rounded mr-2 bg-blue-300`}
-                  onClick={() => {}}
-                >
-                  {strikePrices?.atmStrikes[1].strike_price}{" "}
-                  {strikePrices?.atmStrikes[1].instrument_type}
-                </button>
+              <div className="bg-gray-200 text-gray-800 font-bold py-2 rounded-lg flex justify-center">
+                <MemoizedPricesView color="bg-gray-500" data={strikePrices?.atmStrikes} type="ATM" />
               </div>
               <div className="flex justify-between items-center">
-                {getPricesView(
-                  "bg-green-500",
-                  strikePrices?.itmCallStrikes,
-                  "CE"
-                )}
-                {getPricesView("bg-red-500", strikePrices?.otmPutStrikes, "PE")}
+                <MemoizedPricesView color="bg-green-500" data={strikePrices?.itmCallStrikes} type="CE" />
+                <MemoizedPricesView color="bg-red-500" data={strikePrices?.otmPutStrikes} type="PE" />
               </div>
             </div>
           </div>

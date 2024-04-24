@@ -10,7 +10,7 @@ const IndexInstruments: React.FC<RadioButtonsProps> = ({
   handleOptionChange,
 }) => {
   return (
-    <div className="flex items-center space-x-4 mt-16 bg-gray-300 p-4 rounded-lg">
+    <div className="flex items-center space-x-4 mt-4 bg-gray-300 p-4 rounded-lg">
       <label className="inline-flex items-center">
         <input
           type="radio"
