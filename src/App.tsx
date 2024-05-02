@@ -5,6 +5,7 @@ import Orders from "./components/Orders";
 import Reports from "./components/Reports";
 import Dashboard from "./components/Dashboard";
 import NotFound from "./components/NotFound";
+import StrategyView from "./components/StrategyView";
 
 type AuthToken = string | null;
 
@@ -48,6 +49,14 @@ const App: React.FC = () => {
           element={
             <ProtectedRoute>
               <Reports />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/strategies/:name"
+          element={
+            <ProtectedRoute>
+              <StrategyView />
             </ProtectedRoute>
           }
         />

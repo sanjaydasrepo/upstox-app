@@ -9,6 +9,7 @@ import StrikePricesCard from "./StrikePricesCard";
 import { OptionData } from "../interfaces/optiondata.interface";
 import { StrikePrices } from "../interfaces/strike-prices.interface";
 import { MarketData } from "../interfaces/marketdata.interface";
+import StrategyList from "./StrategyListCard";
 
 const socket = io(BASE_URL);
 
@@ -187,7 +188,7 @@ const Dashboard: React.FC = () => {
     let interval: any;
     async function getData() {
       interval = setInterval(() => {
-        getPositions();
+        // getPositions();
       }, 5000);
     }
     getData();
@@ -276,7 +277,10 @@ const Dashboard: React.FC = () => {
               totalInvested={positions?.totalInvested}
             />
           </div>
-          <StrikePricesCard strikePrices={strikePrices} handleBuyOption={handleBuyOption}/>
+          <div className="flex">
+            <StrikePricesCard strikePrices={strikePrices} handleBuyOption={handleBuyOption}/>
+            <StrategyList/>
+          </div>
         </div>
     
       </div>
