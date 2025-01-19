@@ -11,7 +11,7 @@ import { StrikePrices } from "../interfaces/strike-prices.interface";
 import { MarketData } from "../interfaces/marketdata.interface";
 import StrategyList from "./StrategyListCard";
 
-const socket = io(BASE_URL);
+const socket = io(BASE_URL ?? "localhost:3001");
 
 const INSTRUMENT_KEY = "instruments";
 const Dashboard: React.FC = () => {
