@@ -14,6 +14,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -24,20 +25,206 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  uniqueNamesGenerator,
+  names,
+  colors,
+  NumberDictionary,
+} from "unique-names-generator";
+import { Badge } from "@/components/ui/badge";
+
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+
+const formSchema = z.object({
+  name: z.string(),
+  max_position_size: z.string(),
+  max_loss_per_trade: z.string(),
+  daily_loss_limit: z.string(),
+  daily_profit_target: z.string(),
+  max_trades_per_hour: z.string().optional(),
+  stop_loss_buffer_points: z.string().optional(),
+  max_allowed_volatility: z.string().optional(),
+  avoid_high_iv: z.boolean().optional(),
+  min_risk_to_reward_ratio: z.string().optional(),
+  min_win_rate_percentage: z.string().optional(),
+  enforce_stop_loss: z.boolean().optional(),
+  enforce_take_profit: z.boolean().optional(),
+  restricted_hours_from: z.string().optional(),
+  restricted_hours_to: z.string().optional(),
+  max_consecutive_losses: z.string().optional(),
+  cooling_off_minutes_after_losses: z.string().optional(),
+});
+
+interface FieldWithUnitToggle {
+  value: number;
+  isPercentage: boolean;
+}
+
+type FormValues = z.infer<typeof formSchema>;
+
+interface ToggleableFieldProps {
+  name: keyof FormValues;
+  label: string;
+  isPercentage: boolean;
+  setIsPercentage: (value: boolean) => void;
+  validation?: object;
+  description?: string;
+}
 
 const RiskProfile: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const form = useForm();
+
+  // State for percentage toggles
+  const [maxLossIsPercentage, setMaxLossIsPercentage] = useState(false);
+  const [dailyLossIsPercentage, setDailyLossIsPercentage] = useState(false);
+  const [dailyProfitIsPercentage, setDailyProfitIsPercentage] = useState(false);
+
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: uniqueNamesGenerator({
+        dictionaries: [
+          colors,
+          names,
+          NumberDictionary.generate({ min: 100, max: 999 }),
+        ],
+        length: 3,
+        separator: "-",
+        style: "lowerCase",
+      }),
+      max_position_size: "",
+      max_loss_per_trade: "",
+      daily_loss_limit: "",
+      daily_profit_target: "",
+    },
+  });
+
+  const watchMaxPositionSize = +form.watch("max_position_size");
+  const watchMaxLossPerTrade = +form.watch("max_loss_per_trade");
+  const watchDailyLossLimit = +form.watch("daily_loss_limit");
+
+  // Validation rules with dynamic messages
+  const getMaxLossValidation = (positionSize: number) => ({
+    required: "Max loss per trade is required",
+    validate: {
+      notGreaterThanPosition: (value: number) => {
+        const maxLoss = maxLossIsPercentage
+          ? (positionSize * value) / 100
+          : value;
+        return (
+          maxLoss <= positionSize || "Max loss cannot exceed position size"
+        );
+      },
+      reasonableRange: (value: number) => {
+        if (maxLossIsPercentage) {
+          return value <= 100 || "Percentage cannot exceed 100%";
+        }
+        return true;
+      },
+    },
+  });
+
+  const getDailyLossValidation = (maxLossPerTrade: number) => ({
+    required: "Daily loss limit is required",
+    validate: {
+      notLessThanMaxLoss: (value: number) => {
+        const dailyLoss = dailyLossIsPercentage
+          ? (watchMaxPositionSize * value) / 100
+          : value;
+        const maxLoss = maxLossIsPercentage
+          ? (watchMaxPositionSize * maxLossPerTrade) / 100
+          : maxLossPerTrade;
+        return (
+          dailyLoss >= maxLoss ||
+          "Daily loss limit should be greater than max loss per trade"
+        );
+      },
+    },
+  });
+
+  const getBestPracticeMessage = (fieldName: string) => {
+    const bestPractices: { [key: string]: string } = {
+      max_position_size: "Recommended: 2-5% of total capital",
+      max_loss_per_trade: "Best Practice: 1-2% of position size",
+      daily_loss_limit: "Suggested: 3-5% of total capital",
+      daily_profit_target: "Typical: 2-3x daily loss limit",
+    };
+    return bestPractices[fieldName] || "";
+  };
 
   const onSubmit = async (data: any) => {
     setLoading(true);
-    console.log(data);
+    // Convert percentage values to absolute if needed
+    const processedData = {
+      ...data,
+      max_loss_per_trade: maxLossIsPercentage
+        ? (data.max_position_size * data.max_loss_per_trade) / 100
+        : data.max_loss_per_trade,
+      daily_loss_limit: dailyLossIsPercentage
+        ? (data.max_position_size * data.daily_loss_limit) / 100
+        : data.daily_loss_limit,
+      daily_profit_target: dailyProfitIsPercentage
+        ? (data.max_position_size * data.daily_profit_target) / 100
+        : data.daily_profit_target,
+    };
+    console.log(processedData);
     // Handle submission
   };
 
+  const ToggleableField: React.FC<ToggleableFieldProps> = ({
+    name,
+    label,
+    isPercentage,
+    setIsPercentage,
+    validation = {},
+    description = "",
+  }) => (
+    <FormField
+      control={form.control}
+      name={name}
+      rules={validation}
+      render={({ field }) => (
+        <FormItem>
+          <div className="flex justify-between items-center">
+            <FormLabel>{label}</FormLabel>
+            <div className="flex items-center space-x-2">
+              <span className="text-sm">Amount</span>
+              <Switch
+                checked={isPercentage}
+                onCheckedChange={setIsPercentage}
+              />
+              <span className="text-sm">%ge</span>
+            </div>
+          </div>
+          <FormControl>
+            <div className="relative">
+              <Input
+                type="number"
+                {...field}
+                value={field.value?.toString() || ""}
+                step={isPercentage ? 0.1 : 1}
+              />
+              <Badge
+                variant="secondary"
+                className="absolute right-2 top-1/2 transform -translate-y-1/2"
+              >
+                {isPercentage ? "%" : "₹"}
+              </Badge>
+            </div>
+          </FormControl>
+          {description && (
+            <FormDescription>{getBestPracticeMessage(name)}</FormDescription>
+          )}
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto sm:p-2 p-6 border">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
           <CardTitle>Risk Profile Settings</CardTitle>
@@ -50,75 +237,83 @@ const RiskProfile: React.FC = () => {
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* Essential Settings */}
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold">Essential Risk Parameters</h3>
-                
+                <FormField
+                  control={form.control}
+                  name="name"
+                  rules={{ required: "Name is required" }}
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Profile Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 {/* Position Level Risk */}
                 <div className="space-y-4">
                   <h4 className="font-medium">Position Level Risk</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid sm:grid-cols-1 grid-cols-2 gap-8">
                     <FormField
                       control={form.control}
                       name="max_position_size"
+                      rules={{ required: "Max position size is required" }}
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Max Position Size (₹)</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} />
                           </FormControl>
+                          <FormDescription>
+                            {getBestPracticeMessage("max_position_size")}
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={form.control}
-                      name="max_loss_per_trade"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max Loss Per Trade (₹)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div className="mt-1">
+                      <ToggleableField
+                        name="max_loss_per_trade"
+                        label="Max Loss Per Trade"
+                        isPercentage={maxLossIsPercentage}
+                        setIsPercentage={setMaxLossIsPercentage}
+                        validation={getMaxLossValidation(
+                          Number(watchMaxPositionSize)
+                        )}
+                      />
+                    </div>
                   </div>
                 </div>
 
                 {/* Account Level Risk */}
                 <div className="space-y-4">
                   <h4 className="font-medium">Account Level Risk</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
+                  <div className="grid sm:grid-cols-1 grid-cols-2 gap-8">
+                    <ToggleableField
                       name="daily_loss_limit"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Daily Loss Limit (₹)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
+                      label="Daily Loss Limit"
+                      isPercentage={dailyLossIsPercentage}
+                      setIsPercentage={setDailyLossIsPercentage}
+                      validation={getDailyLossValidation(
+                        Number(watchMaxLossPerTrade)
                       )}
                     />
-                    <FormField
-                      control={form.control}
+
+                    <ToggleableField
                       name="daily_profit_target"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Daily Profit Target (₹)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
+                      label="Daily Profit Target"
+                      isPercentage={dailyProfitIsPercentage}
+                      setIsPercentage={setDailyProfitIsPercentage}
+                      validation={{
+                        required: "Daily profit target is required",
+                      }}
                     />
                   </div>
                 </div>
               </div>
-
+              {/* Rest of the form remains the same */}
               {/* Advanced Settings Toggle */}
               <div className="flex items-center space-x-2 pt-4">
                 <Switch
@@ -128,35 +323,75 @@ const RiskProfile: React.FC = () => {
                 <span>Show Advanced Settings</span>
               </div>
 
-              {/* Advanced Settings */}
               {showAdvanced && (
-                <Accordion type="single" collapsible className="w-full">
+                <Accordion
+                  type="single"
+                  collapsible
+                  className="w-full space-y-4"
+                >
                   {/* Trade Execution Risk */}
                   <AccordionItem value="trade-execution">
                     <AccordionTrigger>Trade Execution Risk</AccordionTrigger>
                     <AccordionContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid sm:grid-cols-1 grid-cols-2 gap-8">
                         <FormField
                           control={form.control}
                           name="max_trades_per_hour"
-                          render={({ field }) => (
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
                             <FormItem>
                               <FormLabel>Max Trades Per Hour</FormLabel>
                               <FormControl>
-                                <Input type="number" {...field} />
+                                <Input
+                                  type="number"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  {...field}
+                                />
                               </FormControl>
+                              <FormDescription>
+                                Recommended: 3-5 trades per hour to avoid
+                                overtrading
+                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
+                        <div className="mt-2">
+                          <FormField
+                            control={form.control}
+                            name="enforce_stop_loss"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Enforce Stop Loss</FormLabel>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    className="ml-2"
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Recommended: Always keep stop loss enabled
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         <FormField
                           control={form.control}
-                          name="stop_loss_buffer_points"
+                          name="enforce_take_profit"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Stop Loss Buffer Points</FormLabel>
+                              <FormLabel>Enforce Take Profit</FormLabel>
                               <FormControl>
-                                <Input type="number" {...field} />
+                                <Switch
+                                  checked={field.value}
+                                  onCheckedChange={field.onChange}
+                                  className="ml-2"
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -170,15 +405,67 @@ const RiskProfile: React.FC = () => {
                   <AccordionItem value="market-level">
                     <AccordionTrigger>Market Level Risk</AccordionTrigger>
                     <AccordionContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid sm:grid-cols-1 grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name="max_allowed_volatility"
-                          render={({ field }) => (
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
                             <FormItem>
                               <FormLabel>Max Allowed Volatility (%)</FormLabel>
                               <FormControl>
-                                <Input type="number" {...field} />
+                                <Input
+                                  type="number"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Recommended: 15-20% for balanced risk
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <div className="mt-2">
+                          <FormField
+                            control={form.control}
+                            name="avoid_high_iv"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Avoid High IV</FormLabel>
+                                <FormControl>
+                                  <Switch
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                    className="ml-2"
+                                  />
+                                </FormControl>
+                                <FormDescription>
+                                  Avoid trading during high implied volatility
+                                </FormDescription>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        {/* <FormField
+                          control={form.control}
+                          name="restricted_hours_from"
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
+                            <FormItem>
+                              <FormLabel>Restricted Hours From</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="time"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -186,16 +473,79 @@ const RiskProfile: React.FC = () => {
                         />
                         <FormField
                           control={form.control}
-                          name="avoid_high_iv"
-                          render={({ field }) => (
+                          name="restricted_hours_to"
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
                             <FormItem>
-                              <FormLabel>Avoid High IV</FormLabel>
+                              <FormLabel>Restricted Hours To</FormLabel>
                               <FormControl>
-                                <Switch
-                                  checked={field.value}
-                                  onCheckedChange={field.onChange}
+                                <Input
+                                  type="time"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  {...field}
                                 />
                               </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        /> */}
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+
+                  {/* Behavioral Risk */}
+                  <AccordionItem value="behavioral">
+                    <AccordionTrigger>
+                      Behavioral Risk Controls
+                    </AccordionTrigger>
+                    <AccordionContent>
+                      <div className="grid sm:grid-cols-1 grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="max_consecutive_losses"
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
+                            <FormItem>
+                              <FormLabel>Max Consecutive Losses</FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Recommended: 3-4 consecutive losses
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="cooling_off_minutes_after_losses"
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
+                            <FormItem>
+                              <FormLabel>
+                                Cooling Off Period (minutes)
+                              </FormLabel>
+                              <FormControl>
+                                <Input
+                                  type="number"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  {...field}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Recommended: 30-60 minutes
+                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -208,16 +558,27 @@ const RiskProfile: React.FC = () => {
                   <AccordionItem value="performance">
                     <AccordionTrigger>Performance Metrics</AccordionTrigger>
                     <AccordionContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="grid sm:grid-cols-1 grid-cols-2 gap-8">
                         <FormField
                           control={form.control}
                           name="min_risk_to_reward_ratio"
-                          render={({ field }) => (
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
                             <FormItem>
                               <FormLabel>Min Risk to Reward Ratio</FormLabel>
                               <FormControl>
-                                <Input type="number" step="0.1" {...field} />
+                                <Input
+                                  type="number"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  step="0.1"
+                                  {...field}
+                                />
                               </FormControl>
+                              <FormDescription>
+                                Recommended: 1:2 or higher
+                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -225,12 +586,22 @@ const RiskProfile: React.FC = () => {
                         <FormField
                           control={form.control}
                           name="min_win_rate_percentage"
-                          render={({ field }) => (
+                          render={({
+                            field: { value, onChange, ...field },
+                          }) => (
                             <FormItem>
                               <FormLabel>Min Win Rate (%)</FormLabel>
                               <FormControl>
-                                <Input type="number" {...field} />
+                                <Input
+                                  type="number"
+                                  value={value || ""}
+                                  onChange={onChange}
+                                  {...field}
+                                />
                               </FormControl>
+                              <FormDescription>
+                                Target: 40-50% for consistent profits
+                              </FormDescription>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -240,7 +611,6 @@ const RiskProfile: React.FC = () => {
                   </AccordionItem>
                 </Accordion>
               )}
-
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? "Saving..." : "Save Risk Profile"}
               </Button>

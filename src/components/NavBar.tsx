@@ -16,7 +16,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
 
   return (
     <nav className="bg-gray-800 py-4">
-      <div className="container mx-auto flex justify-between items-center">
+      <div className="container flex justify-between items-center">
         <div className="text-white font-bold">Maal</div>
         <div className="relative">
           <button
