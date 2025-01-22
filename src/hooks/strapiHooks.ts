@@ -1,0 +1,155 @@
+import {
+  Portfolio,
+  RiskSetting,
+  StrapiArrayResponse,
+  StrapiResponse,
+  Trade,
+  TradingAccount,
+  TradingCredential,
+  User,
+} from "@/types/strapiTypes";
+import axios from "@/utils/axiosConfig";
+
+import {
+  UseQueryResult,
+  UseQueryOptions,
+  useMutation,
+  useQuery,
+  UseMutationResult,
+} from "@tanstack/react-query";
+
+const API_URL = process.env.REACT_APP_ST_BASE_URL || "http://localhost:1337";
+
+export const useUser = () => {
+  return useQuery<User, Error>({
+    queryKey: ["user"],
+    queryFn: async () => {
+      const resp = await axios.get<User>(`/users/me`);
+      return resp.data;
+    },
+  });
+};
+
+export const useTradingAccounts = (
+  filters?: Record<string, any>,
+  options?: UseQueryOptions<StrapiArrayResponse<TradingAccount>>
+) => {
+  const queryString = filters
+    ? Object.entries(filters)
+        .map(
+          ([key, value]) =>
+            `filters[${key.replace(/\./g, "][")}][$eq]=${encodeURIComponent(
+              value
+            )}`
+        )
+        .join("&")
+    : "";
+
+  return useQuery<StrapiArrayResponse<TradingAccount>>({
+    queryKey: ["trading-accounts", filters],
+    queryFn: () =>
+      axios
+        .get(`/trading-accounts?populate=portfolio&${queryString}`)
+        .then((res) => res.data),
+    ...options,
+  });
+};
+
+export const useTradingAccount = (
+  id: number,
+  options?: UseQueryOptions<StrapiResponse<TradingAccount>>
+) => {
+  return useQuery<StrapiResponse<TradingAccount>>({
+    queryKey: ["trading-account", id],
+    queryFn: () => axios.get(`/trading-accounts/${id}`).then((res) => res.data),
+    enabled: !!id,
+    ...options,
+  });
+};
+
+export const useCreateTradingAccount = () => {
+  return useMutation({
+    mutationFn: (data: TradingAccount) =>
+      axios.post(`/trading-accounts`, { data }).then((res) => res.data),
+  });
+};
+
+// Portfolio Hooks
+export const usePortfolio = (
+  accountId: number,
+  options?: UseQueryOptions<StrapiResponse<Portfolio>>
+) => {
+  return useQuery<StrapiResponse<Portfolio>>({
+    queryKey: ["portfolio", accountId],
+    queryFn: () =>
+      axios.get(`/portfolios/${accountId}`).then((res) => res.data),
+    enabled: !!accountId,
+    ...options,
+  });
+};
+
+// Risk Settings Hooks
+export const useRiskSettings = (trading_account_ids: string[]) => {
+  const query = new URLSearchParams({
+    populate: 'trading_accounts',
+  });
+
+  trading_account_ids.forEach((id) =>
+    query.append('filters[trading_accounts][documentId]', id)
+  );
+
+  return useQuery<StrapiArrayResponse<RiskSetting>>({
+    queryKey: ["risk-settings", trading_account_ids],
+    queryFn: () =>
+      axios
+        .get(`/risk-settings?${query.toString()}`)
+        .then((res) => res.data),
+    enabled: trading_account_ids.length > 0,
+  });
+};
+
+
+
+// Trade Hooks
+export const useTrades = (
+  accountId: number,
+  options?: UseQueryOptions<StrapiArrayResponse<Trade>>
+) => {
+  return useQuery<StrapiArrayResponse<Trade>>({
+    queryKey: ["trades", accountId],
+    queryFn: () =>
+      axios
+        .get(`/trades?filters[trading_account]=${accountId}`)
+        .then((res) => res.data),
+    enabled: !!accountId,
+    ...options,
+  });
+};
+
+export const useCreateTrade = () => {
+  return useMutation({
+    mutationFn: (data: Partial<Trade>) =>
+      axios.post(`/trades`, { data }).then((res) => res.data),
+  });
+};
+
+// Trading Credentials Hooks
+export const useTradingCredentials = (
+  accountId: number,
+  options?: UseQueryOptions<StrapiResponse<TradingCredential>>
+) => {
+  return useQuery<StrapiResponse<TradingCredential>>({
+    queryKey: ["trading-credentials", accountId],
+    queryFn: () =>
+      axios.get(`/trading-credentials/${accountId}`).then((res) => res.data),
+    enabled: !!accountId,
+    ...options,
+  });
+};
+
+export const useCreateTradingCredentials = () => {
+  return useMutation({
+    mutationFn: (data: TradingCredential) =>
+      axios.post(`/trading-credentials`, { data }).then((res) => res.data),
+  });
+};

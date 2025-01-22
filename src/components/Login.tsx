@@ -80,7 +80,7 @@ export default function SignInForm() {
         if( resp.data ) {
           if( resp.data.jwt ) {
             localStorage.setItem('token', resp.data.jwt);
-            window.location.href = `/dashboard`;
+            window.location.href = `/`;
           }
           console.log("data login ", resp.data );
         }
