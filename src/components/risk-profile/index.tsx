@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   Card,
@@ -56,21 +56,7 @@ const formSchema = z.object({
   cooling_off_minutes_after_losses: z.string().optional(),
 });
 
-interface FieldWithUnitToggle {
-  value: number;
-  isPercentage: boolean;
-}
-
 type FormValues = z.infer<typeof formSchema>;
-
-interface ToggleableFieldProps {
-  name: keyof FormValues;
-  label: string;
-  isPercentage: boolean;
-  setIsPercentage: (value: boolean) => void;
-  validation?: object;
-  description?: string;
-}
 
 const RiskProfile: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -101,49 +87,6 @@ const RiskProfile: React.FC = () => {
     },
   });
 
-  const watchMaxPositionSize = +form.watch("max_position_size");
-  const watchMaxLossPerTrade = +form.watch("max_loss_per_trade");
-  const watchDailyLossLimit = +form.watch("daily_loss_limit");
-
-  // Validation rules with dynamic messages
-  const getMaxLossValidation = (positionSize: number) => ({
-    required: "Max loss per trade is required",
-    validate: {
-      notGreaterThanPosition: (value: number) => {
-        const maxLoss = maxLossIsPercentage
-          ? (positionSize * value) / 100
-          : value;
-        return (
-          maxLoss <= positionSize || "Max loss cannot exceed position size"
-        );
-      },
-      reasonableRange: (value: number) => {
-        if (maxLossIsPercentage) {
-          return value <= 100 || "Percentage cannot exceed 100%";
-        }
-        return true;
-      },
-    },
-  });
-
-  const getDailyLossValidation = (maxLossPerTrade: number) => ({
-    required: "Daily loss limit is required",
-    validate: {
-      notLessThanMaxLoss: (value: number) => {
-        const dailyLoss = dailyLossIsPercentage
-          ? (watchMaxPositionSize * value) / 100
-          : value;
-        const maxLoss = maxLossIsPercentage
-          ? (watchMaxPositionSize * maxLossPerTrade) / 100
-          : maxLossPerTrade;
-        return (
-          dailyLoss >= maxLoss ||
-          "Daily loss limit should be greater than max loss per trade"
-        );
-      },
-    },
-  });
-
   const getBestPracticeMessage = (fieldName: string) => {
     const bestPractices: { [key: string]: string } = {
       max_position_size: "Recommended: 2-5% of total capital",
@@ -156,7 +99,6 @@ const RiskProfile: React.FC = () => {
 
   const onSubmit = async (data: any) => {
     setLoading(true);
-    // Convert percentage values to absolute if needed
     const processedData = {
       ...data,
       max_loss_per_trade: maxLossIsPercentage
@@ -169,59 +111,84 @@ const RiskProfile: React.FC = () => {
         ? (data.max_position_size * data.daily_profit_target) / 100
         : data.daily_profit_target,
     };
-    console.log(processedData);
-    // Handle submission
   };
 
-  const ToggleableField: React.FC<ToggleableFieldProps> = ({
+  interface ToggleableFieldProps {
+    name: string;
+    label: string;
+    isPercentage: boolean;
+    setIsPercentage: (value: boolean) => void;
+    validation?: object;
+    description?: string;
+    form: any;
+  }
+
+  const ToggleableField = ({
     name,
     label,
     isPercentage,
     setIsPercentage,
     validation = {},
     description = "",
-  }) => (
-    <FormField
-      control={form.control}
-      name={name}
-      rules={validation}
-      render={({ field }) => (
-        <FormItem>
-          <div className="flex justify-between items-center">
-            <FormLabel>{label}</FormLabel>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm">Amount</span>
-              <Switch
-                checked={isPercentage}
-                onCheckedChange={setIsPercentage}
-              />
-              <span className="text-sm">%ge</span>
+    form,
+  }: ToggleableFieldProps) => {
+    // Create a memoized onChange handler
+    const handleInputChange = React.useCallback(
+      (event: React.ChangeEvent<HTMLInputElement>) => {
+        form.setValue(name, event.target.value, { shouldValidate: false });
+      },
+      [form, name]
+    );
+
+    return (
+      <FormField
+        control={form.control}
+        name={name}
+        rules={validation}
+        render={({ field }) => (
+          <FormItem>
+            <div className="flex justify-between items-center">
+              <FormLabel>{label}</FormLabel>
+              <div className="flex items-center space-x-2">
+                <span className="text-sm">Amount</span>
+                <Switch
+                  checked={isPercentage}
+                  onCheckedChange={setIsPercentage}
+                />
+                <span className="text-sm">%ge</span>
+              </div>
             </div>
-          </div>
-          <FormControl>
-            <div className="relative">
-              <Input
-                type="number"
-                {...field}
-                value={field.value?.toString() || ""}
-                step={isPercentage ? 0.1 : 1}
-              />
-              <Badge
-                variant="secondary"
-                className="absolute right-2 top-1/2 transform -translate-y-1/2"
-              >
-                {isPercentage ? "%" : "₹"}
-              </Badge>
-            </div>
-          </FormControl>
-          {description && (
-            <FormDescription>{getBestPracticeMessage(name)}</FormDescription>
-          )}
-          <FormMessage />
-        </FormItem>
-      )}
-    />
-  );
+            <FormControl>
+              <div className="relative">
+                <Input
+                  value={field.value || ""}
+                  onChange={handleInputChange}
+                  onBlur={() => {
+                    field.onBlur();
+                    form.trigger(name);
+                  }}
+                  name={field.name}
+                  ref={field.ref}
+                  type="number"
+                  step={isPercentage ? "0.1" : "1"}
+                />
+                <Badge
+                  variant="secondary"
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2"
+                >
+                  {isPercentage ? "%" : "₹"}
+                </Badge>
+              </div>
+            </FormControl>
+            {description && (
+              <FormDescription>{getBestPracticeMessage(name)}</FormDescription>
+            )}
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  };
 
   return (
     <div className="container mx-auto sm:p-2 p-6 border">
@@ -275,46 +242,92 @@ const RiskProfile: React.FC = () => {
                     />
                     <div className="mt-1">
                       <ToggleableField
+                        form={form}
                         name="max_loss_per_trade"
                         label="Max Loss Per Trade"
                         isPercentage={maxLossIsPercentage}
                         setIsPercentage={setMaxLossIsPercentage}
-                        validation={getMaxLossValidation(
-                          Number(watchMaxPositionSize)
-                        )}
+                        validation={{
+                          required: "Max loss per trade is required",
+                          validate: (value: string) => {
+                            if (!value) return true;
+                            const numValue = parseFloat(value);
+                            if (isNaN(numValue))
+                              return "Please enter a valid number";
+
+                            const positionSize = parseFloat(
+                              form.getValues("max_position_size")
+                            );
+                            const maxLoss = maxLossIsPercentage
+                              ? (positionSize * numValue) / 100
+                              : numValue;
+
+                            if (maxLoss > positionSize) {
+                              return "Max loss cannot exceed position size";
+                            }
+                            if (maxLossIsPercentage && numValue > 100) {
+                              return "Percentage cannot exceed 100%";
+                            }
+                            return true;
+                          },
+                        }}
+                        description="max_loss_per_trade"
                       />
                     </div>
                   </div>
                 </div>
 
                 {/* Account Level Risk */}
-                <div className="space-y-4">
-                  <h4 className="font-medium">Account Level Risk</h4>
-                  <div className="grid sm:grid-cols-1 grid-cols-2 gap-8">
-                    <ToggleableField
-                      name="daily_loss_limit"
-                      label="Daily Loss Limit"
-                      isPercentage={dailyLossIsPercentage}
-                      setIsPercentage={setDailyLossIsPercentage}
-                      validation={getDailyLossValidation(
-                        Number(watchMaxLossPerTrade)
-                      )}
-                    />
+                <div className="grid sm:grid-cols-1 grid-cols-2 gap-8">
+                  <ToggleableField
+                    form={form}
+                    name="daily_loss_limit"
+                    label="Daily Loss Limit"
+                    isPercentage={dailyLossIsPercentage}
+                    setIsPercentage={setDailyLossIsPercentage}
+                    validation={{
+                      required: "Daily loss limit is required",
+                      validate: (value: string) => {
+                        if (!value) return true;
+                        const numValue = parseFloat(value);
+                        if (isNaN(numValue))
+                          return "Please enter a valid number";
 
-                    <ToggleableField
-                      name="daily_profit_target"
-                      label="Daily Profit Target"
-                      isPercentage={dailyProfitIsPercentage}
-                      setIsPercentage={setDailyProfitIsPercentage}
-                      validation={{
-                        required: "Daily profit target is required",
-                      }}
-                    />
-                  </div>
+                        const positionSize = parseFloat(
+                          form.getValues("max_position_size")
+                        );
+                        const maxLossPerTrade = parseFloat(
+                          form.getValues("max_loss_per_trade")
+                        );
+
+                        const maxLoss = maxLossIsPercentage
+                          ? (positionSize * maxLossPerTrade) / 100
+                          : maxLossPerTrade;
+                        const dailyLoss = dailyLossIsPercentage
+                          ? (positionSize * numValue) / 100
+                          : numValue;
+
+                        return (
+                          dailyLoss >= maxLoss ||
+                          "Daily loss limit should be greater than max loss per trade"
+                        );
+                      },
+                    }}
+                  />
+
+                  <ToggleableField
+                    form={form}
+                    name="daily_profit_target"
+                    label="Daily Profit Target"
+                    isPercentage={dailyProfitIsPercentage}
+                    setIsPercentage={setDailyProfitIsPercentage}
+                    validation={{
+                      required: "Daily profit target is required",
+                    }}
+                  />
                 </div>
               </div>
               {/* Rest of the form remains the same */}
-              {/* Advanced Settings Toggle */}
               <div className="flex items-center space-x-2 pt-4">
                 <Switch
                   checked={showAdvanced}
