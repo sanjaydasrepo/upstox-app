@@ -323,7 +323,8 @@ const RiskProfile: React.FC = () => {
           daily_profit_target: +data.daily_profit_target,
           enforce_stop_loss: data.enforce_stop_loss ?? false,
           max_trades_per_hour: data?.max_trades_per_hour ? +data?.max_trades_per_hour : 0,
-          margin_call_threshold:0 
+          margin_call_threshold:0,
+          severity:''
       });
       console.log("Processed data:", resp);
       if (resp.status === 201) {

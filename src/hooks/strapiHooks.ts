@@ -125,7 +125,7 @@ export const useRiskSettings = (trading_account_ids: string[]) => {
 export const useRiskSettingsByUser = (
   userId: string,
 ) => {
-  return useQuery<StrapiArrayResponse<Trade>>({
+  return useQuery<StrapiArrayResponse<RiskSetting>>({
     queryKey: ["risk-settings", userId],
     enabled: !!userId ,
     queryFn: () =>

@@ -72,8 +72,9 @@ export interface RiskSetting {
   daily_profit_target: number;
   enforce_stop_loss: boolean;
   max_trades_per_hour: number;
-
+  documentId?:string;
   trading_account?: TradingAccount;
+  severity:string;
 }
 
 export interface Trade {
