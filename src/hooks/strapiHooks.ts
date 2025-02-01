@@ -16,6 +16,7 @@ import {
   useMutation,
   useQuery,
   UseMutationResult,
+  useQueryClient,
 } from "@tanstack/react-query";
 
 const API_URL = process.env.REACT_APP_ST_BASE_URL || "http://localhost:1337";
@@ -88,6 +89,19 @@ export const usePortfolio = (
   });
 };
 
+export const useRisk = (
+  accountId: number,
+  options?: UseQueryOptions<StrapiResponse<Portfolio>>
+) => {
+  return useQuery<StrapiResponse<Portfolio>>({
+    queryKey: ["portfolio", accountId],
+    queryFn: () =>
+      axios.get(`/portfolios/${accountId}`).then((res) => res.data),
+    enabled: !!accountId,
+    ...options,
+  });
+};
+
 // Risk Settings Hooks
 export const useRiskSettings = (trading_account_ids: string[]) => {
   const query = new URLSearchParams({
@@ -108,7 +122,30 @@ export const useRiskSettings = (trading_account_ids: string[]) => {
   });
 };
 
+export const useRiskSettingsByUser = (
+  userId: string,
+) => {
+  return useQuery<StrapiArrayResponse<Trade>>({
+    queryKey: ["risk-settings", userId],
+    enabled: !!userId ,
+    queryFn: () =>
+      axios
+        .get(`/risk-settings?filters[users][documentId]=${userId}`)
+        .then((res) => res.data),
+  })
+}
 
+export const useCreateRiskSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: RiskSetting) => axios.post(`/risk-settings`, { data }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: 'risk-settings',
+      });
+    },
+  });
+};
 
 // Trade Hooks
 export const useTrades = (

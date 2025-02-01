@@ -1,7 +1,6 @@
-
 export type StrapiResponse<T> = {
-  id:number;
-  data: T
+  id: number;
+  data: T;
 };
 
 export type StrapiArrayResponse<T> = {
@@ -9,35 +8,35 @@ export type StrapiArrayResponse<T> = {
 };
 
 export enum TradeType {
-  BUY = 'buy',
-  SELL = 'sell'
+  BUY = "buy",
+  SELL = "sell",
 }
 
 export enum OrderType {
-  MARKET = 'market',
-  LIMIT = 'limit',
-  STOP = 'stop'
+  MARKET = "market",
+  LIMIT = "limit",
+  STOP = "stop",
 }
 
 export enum OrderStatus {
-  PENDING = 'pending',
-  FILLED = 'filled',
-  CANCELLED = 'cancelled'
+  PENDING = "pending",
+  FILLED = "filled",
+  CANCELLED = "cancelled",
 }
 
 export enum AccountType {
-  DEMO = 'demo',
-  LIVE = 'live'
+  DEMO = "demo",
+  LIVE = "live",
 }
 
 export enum AccountStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
+  ACTIVE = "active",
+  INACTIVE = "inactive",
 }
 
 export enum BrokerType {
-  zerodha = 'zerodha',
-  upstox = 'upstox',
+  zerodha = "zerodha",
+  upstox = "upstox",
 }
 
 // Interfaces
@@ -55,7 +54,6 @@ export interface User {
   publishedAt: string; // ISO date string
 }
 
-
 export interface Portfolio {
   total_value: number;
   cash_balance: number;
@@ -70,6 +68,11 @@ export interface RiskSetting {
   max_loss_per_trade: number;
   daily_loss_limit: number;
   margin_call_threshold: number;
+  name: string;
+  daily_profit_target: number;
+  enforce_stop_loss: boolean;
+  max_trades_per_hour: number;
+
   trading_account?: TradingAccount;
 }
 
@@ -85,7 +88,7 @@ export interface Trade {
 }
 
 export interface TradingAccount {
-  id?:number;
+  id?: number;
   name: string;
   documentId?: string;
   account_type: AccountType;
@@ -114,4 +117,3 @@ export interface User {
   email: string;
   // Add other user fields as needed
 }
-
