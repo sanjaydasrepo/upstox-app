@@ -75,6 +75,7 @@ export interface RiskSetting {
   documentId?:string;
   trading_account?: TradingAccount;
   severity:string;
+  users?:any;
 }
 
 export interface Trade {
@@ -116,5 +117,4 @@ export interface TradingCredential {
 export interface User {
   username: string;
   email: string;
-  // Add other user fields as needed
 }

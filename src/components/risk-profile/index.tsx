@@ -37,7 +37,12 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import axiosInstance from "@/utils/axiosConfig";
 import { useNavigate } from "react-router-dom";
-import { useCreateRiskSettings } from "@/hooks/strapiHooks";
+import {
+  useCreateRiskSettings,
+  useRiskSettingsByUser,
+  useUser,
+} from "@/hooks/strapiHooks";
+import PrioritySelector from "../account/widgets/PrioritySelector";
 
 const formSchema = z
   .object({
@@ -129,6 +134,7 @@ const formSchema = z
     restricted_hours_to: z.string().optional(),
     max_consecutive_losses: z.string().optional(),
     cooling_off_minutes_after_losses: z.string().optional(),
+    severity: z.enum(["Low", "Medium", "High"]).default("Medium"),
   })
   .refine(
     (data) => {
@@ -275,8 +281,13 @@ const RiskProfile: React.FC = () => {
   const [dailyLossIsPercentage, setDailyLossIsPercentage] = useState(false);
   const [dailyProfitIsPercentage, setDailyProfitIsPercentage] = useState(false);
 
-  const { mutateAsync: createRiskSettings} = useCreateRiskSettings();
+  const { data: user } = useUser();
+  const { mutateAsync: createRiskSettings } = useCreateRiskSettings();
+  const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
+    useRiskSettingsByUser(user?.documentId ?? "");
+
   const navigate = useNavigate();
+
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -298,6 +309,7 @@ const RiskProfile: React.FC = () => {
       _maxLossIsPercentage: false,
       _dailyLossIsPercentage: false,
       _dailyProfitIsPercentage: false,
+      severity: "Medium",
     },
   });
 
@@ -316,24 +328,30 @@ const RiskProfile: React.FC = () => {
     try {
       console.log("Processed data:", data);
       const resp = await createRiskSettings({
-          max_position_size: +data.max_position_size,
-          max_loss_per_trade: +data.max_loss_per_trade,
-          name: data.name,
-          daily_loss_limit: +data.daily_loss_limit,
-          daily_profit_target: +data.daily_profit_target,
-          enforce_stop_loss: data.enforce_stop_loss ?? false,
-          max_trades_per_hour: data?.max_trades_per_hour ? +data?.max_trades_per_hour : 0,
-          margin_call_threshold:0,
-          severity:''
+        max_position_size: +data.max_position_size,
+        max_loss_per_trade: +data.max_loss_per_trade,
+        name: data.name,
+        daily_loss_limit: +data.daily_loss_limit,
+        daily_profit_target: +data.daily_profit_target,
+        enforce_stop_loss: data.enforce_stop_loss ?? false,
+        max_trades_per_hour: data?.max_trades_per_hour
+          ? +data?.max_trades_per_hour
+          : 0,
+        margin_call_threshold: 0,
+        severity: data.severity,
+        users: [user?.id],
       });
       console.log("Processed data:", resp);
       if (resp.status === 201) {
-        navigate(`/`);
+        setTimeout(() => {
+          setLoading(false);
+          navigate(`/`);
+        }, 1500);
       }
     } catch (error) {
       console.error("Error processing form:", error);
     } finally {
-      setLoading(false);
+      //setLoading(false);
     }
   };
 
@@ -360,6 +378,27 @@ const RiskProfile: React.FC = () => {
                       <FormControl>
                         <Input {...field} />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="severity"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Risk Severity</FormLabel>
+                      <FormControl>
+                        <PrioritySelector
+                          value={field.value}
+                          onChange={field.onChange}
+                          disabled={loading}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Select the risk level for this profile
+                      </FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}

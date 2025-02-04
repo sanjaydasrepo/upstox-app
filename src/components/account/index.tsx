@@ -46,6 +46,7 @@ interface AccountFormData {
   accountType: "zerodha" | "upstocks";
   apiKey: string;
   secret: string;
+  priority: 'low' | 'medium' | 'high';
 }
 
 const Account: React.FC = () => {
@@ -67,6 +68,8 @@ const Account: React.FC = () => {
     if (formDataRaw) {
       formData = JSON.parse(formDataRaw);
     }
+
+    console.log("form data ", formData );
 
     try {
       const realAccount = await axiosInstance.get<
@@ -156,10 +159,14 @@ const Account: React.FC = () => {
   };
 
   useEffect(() => {
-    if( action && action === 'add') {
+    console.log("avvvv ", action );
+    if( action && action === 'new') {
       const searchParams = new URLSearchParams(location.search);
       const token = searchParams.get("token");
       const state = searchParams.get("state") || "upstox";
+
+      console.log("Received token:",state, token);
+
       if (token && user) {
         setLoading(true);
         saveAccountDetails(token, state).then( resp =>{
@@ -174,10 +181,13 @@ const Account: React.FC = () => {
     setLoading(true);
     localStorage.setItem("formdata", JSON.stringify(data));
     try {
+      console.log("resp is ", data );
       const resp = await axiosInstanceBk.post(
         "/auth/upstox",
         JSON.stringify(data)
       );
+      console.log("resp is ", resp );
+
       if (resp.status === 200) {
         window.location.href = resp.data.url;
       } else {

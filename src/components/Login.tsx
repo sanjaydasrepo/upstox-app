@@ -96,7 +96,7 @@ export default function SignInForm() {
   return (
     <div className="flex min-h-screen w-full">
       <div className="flex w-full flex-col items-center justify-center px-4 md:w-[60%] md:px-14 lg:px-20">
-        <div className="w-full md:w-[50%]">
+        <div className="w-full">
           <h2 className="mb-2 text-3xl font-semibold text-white">Sign in</h2>
 
           {error && (

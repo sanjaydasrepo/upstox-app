@@ -29,9 +29,7 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     if (
-      !isLoading &&
-      (!tradingAccounts || tradingAccounts?.data?.length === 0)
-    ) {
+      !isLoading && tradingAccounts && tradingAccounts?.data?.length === 0 ){
       navigate("/account/new", { replace: true });
     }
   }, [tradingAccounts, isLoading, navigate]);
@@ -42,7 +40,7 @@ const Dashboard: React.FC = () => {
       !isLoading &&
       tradingAccounts &&
       tradingAccounts?.data?.length > 0 &&
-      (!riskProfiles || riskProfiles?.data?.length === 0)
+      riskProfiles && riskProfiles?.data?.length ===0 
     ) {
       navigate("/risk-profile/new", { replace: true });
     }

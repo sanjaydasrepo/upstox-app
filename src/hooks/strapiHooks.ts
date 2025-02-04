@@ -126,7 +126,7 @@ export const useRiskSettingsByUser = (
   userId: string,
 ) => {
   return useQuery<StrapiArrayResponse<RiskSetting>>({
-    queryKey: ["risk-settings", userId],
+    queryKey: ["risk-settings-by-filter", userId],
     enabled: !!userId ,
     queryFn: () =>
       axios
@@ -141,8 +141,9 @@ export const useCreateRiskSettings = () => {
     mutationFn: (data: RiskSetting) => axios.post(`/risk-settings`, { data }),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
-        queryKey: 'risk-settings',
+        queryKey: ['risk-settings-by-filter'],
       });
+      console.log('Queries invalidated');
     },
   });
 };
