@@ -16,9 +16,18 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useUser } from "@/hooks/strapiHooks";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { useNavigate } from "react-router-dom";
 
 export function AccountDropDown() {
   const { data: user } = useUser();
+
+  const navigate = useNavigate();
+  
+  const handleLogout = () => {
+    console.log("logout is ");
+    localStorage.setItem("token", "");
+    navigate("/login", { replace: true });
+  };
 
   return (
     <DropdownMenu>
@@ -54,8 +63,8 @@ export function AccountDropDown() {
 
           <DropdownMenuItem>Support</DropdownMenuItem>
         </DropdownMenuGroup>
-        
-        <DropdownMenuItem>
+
+        <DropdownMenuItem onClick={() => handleLogout()}>
           Log out
           <DropdownMenuShortcut>⇧⌘Q</DropdownMenuShortcut>
         </DropdownMenuItem>

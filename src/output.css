@@ -1268,6 +1268,11 @@ body {
   padding-bottom: 1rem;
 }
 
+.px-16 {
+  padding-left: 4rem;
+  padding-right: 4rem;
+}
+
 .pb-4 {
   padding-bottom: 1rem;
 }

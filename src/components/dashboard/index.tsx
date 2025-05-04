@@ -6,27 +6,27 @@ import Navbar from "../NavBar";
 import {
   useRiskSettings,
   useRiskSettingsByUser,
-  useTradingAccounts,
+  useTradingAccountsByUser,
   useUser,
 } from "@/hooks/strapiHooks";
+import TradingLayout from "./widgets/TradingLayout";
 
 // const socket = io(BASE_URL ?? "localhost:3001");
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();
 
-  const { data: tradingAccounts, isLoading } = useTradingAccounts({
-    account_status: "active",
-  });
-
+  
   // const tAccIds = tradingAccounts?.data?.map( ta => ta.documentId || "") || [];
-
+  
   // const { data: riskProfiles, isLoading: isLoadingRiskProfiles } = useRiskSettings(tAccIds);
-
+  
   const { data: user } = useUser();
+  
+  const { data: tradingAccounts, isLoading } = useTradingAccountsByUser(user?.documentId ?? "");
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
-    useRiskSettingsByUser(user?.documentId ?? "");
-
+  useRiskSettingsByUser(user?.documentId ?? "");
+  
   useEffect(() => {
     if (
       !isLoading && tradingAccounts && tradingAccounts?.data?.length === 0 ){
@@ -46,6 +46,6 @@ const Dashboard: React.FC = () => {
     }
   }, [riskProfiles, tradingAccounts, isLoadingRiskProfiles, navigate]);
 
-  return <></>;
+  return <TradingLayout/>
 };
 export default Dashboard;

@@ -20,17 +20,13 @@ const useAuth = () => {
 
 const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
   const auth = useAuth();
-  const navigate = useNavigate();
-  const handleLogout = () => {
-    localStorage.setItem("token", "");
-    navigate('/login', { replace: true });
-  };
+  
   if (!auth) {
     return <Navigate to="/login" replace />;
   }
   return (
     <>
-      <Navbar handleLogout={handleLogout} />
+      <Navbar/>
       {children}
     </>
   );

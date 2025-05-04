@@ -62,7 +62,7 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
         <Plus />
       </Button>
       <div className="flex gap-2 flex-grow items-center">
-        <div className="flex flex-col items-center">
+        <div className="flex flex-col items-center flex-1">
           <div className="flex text-white items-center justify-center gap-2">
             <span className="text-sm">Demo</span>
             <Switch

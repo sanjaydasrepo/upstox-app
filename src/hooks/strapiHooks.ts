@@ -31,28 +31,16 @@ export const useUser = () => {
   });
 };
 
-export const useTradingAccounts = (
-  filters?: Record<string, any>,
-  options?: UseQueryOptions<StrapiArrayResponse<TradingAccount>>
+export const useTradingAccountsByUser = (
+  userId: string
 ) => {
-  const queryString = filters
-    ? Object.entries(filters)
-        .map(
-          ([key, value]) =>
-            `filters[${key.replace(/\./g, "][")}][$eq]=${encodeURIComponent(
-              value
-            )}`
-        )
-        .join("&")
-    : "";
-
   return useQuery<StrapiArrayResponse<TradingAccount>>({
-    queryKey: ["trading-accounts", filters],
+    queryKey: ["trading-accounts", userId],
+    enabled: !!userId,
     queryFn: () =>
       axios
-        .get(`/trading-accounts?populate=portfolio&${queryString}`)
+        .get(`/trading-accounts?filters[user][documentId]=${userId}&populate=portfolio`)
         .then((res) => res.data),
-    ...options,
   });
 };
 

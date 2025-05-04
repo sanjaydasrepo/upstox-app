@@ -40,6 +40,7 @@ import { useNavigate } from "react-router-dom";
 import {
   useCreateRiskSettings,
   useRiskSettingsByUser,
+  useTradingAccountsByUser,
   useUser,
 } from "@/hooks/strapiHooks";
 import PrioritySelector from "../account/widgets/PrioritySelector";
@@ -47,12 +48,33 @@ import PrioritySelector from "../account/widgets/PrioritySelector";
 const formSchema = z
   .object({
     name: z.string().min(1, "Name is required"),
-    max_position_size: z.string().nonempty({
-      message: "Position size is required",
-    }),
+    _maxPositionSize: z.boolean().default(false),
     _maxLossIsPercentage: z.boolean().default(false),
     _dailyLossIsPercentage: z.boolean().default(false),
     _dailyProfitIsPercentage: z.boolean().default(false),
+    max_position_size: z
+      .string()
+      .nonempty({ message: "Max position size is required" })
+      .superRefine((val, ctx) => {
+        const numValue = parseFloat(val);
+
+        if (isNaN(numValue)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Please enter a valid number",
+            path: ctx.path,
+          });
+          return;
+        }
+
+        if (numValue <= 0) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Value must be greater than 0",
+            path: ctx.path,
+          });
+        }
+      }),
     max_loss_per_trade: z
       .string()
       .nonempty({ message: "Max loss per trade is required" })
@@ -136,6 +158,19 @@ const formSchema = z
     cooling_off_minutes_after_losses: z.string().optional(),
     severity: z.enum(["Low", "Medium", "High"]).default("Medium"),
   })
+  .refine(
+    (data) => {
+      const maxPosSize = parseFloat(data.max_position_size);
+
+      if (data._maxPositionSize) {
+        return maxPosSize <= 100;
+      }
+    },
+    {
+      message: "Max loss cannot exceed 100%",
+      path: ["max_position_size"],
+    }
+  )
   .refine(
     (data) => {
       const maxLossValue = parseFloat(data.max_loss_per_trade);
@@ -278,6 +313,7 @@ const RiskProfile: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [maxLossIsPercentage, setMaxLossIsPercentage] = useState(false);
+  const [maxPosSizeIsPercentage, setMaxPosSizeIsPercentage] = useState(false);
   const [dailyLossIsPercentage, setDailyLossIsPercentage] = useState(false);
   const [dailyProfitIsPercentage, setDailyProfitIsPercentage] = useState(false);
 
@@ -286,8 +322,10 @@ const RiskProfile: React.FC = () => {
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
     useRiskSettingsByUser(user?.documentId ?? "");
 
+  const { data: tradingAccounts, isLoading: isTradingLoadingAcccount } =
+    useTradingAccountsByUser(user?.documentId ?? "");
+    
   const navigate = useNavigate();
-
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -306,6 +344,7 @@ const RiskProfile: React.FC = () => {
       max_loss_per_trade: "",
       daily_loss_limit: "",
       daily_profit_target: "",
+      _maxPositionSize: false,
       _maxLossIsPercentage: false,
       _dailyLossIsPercentage: false,
       _dailyProfitIsPercentage: false,
@@ -408,22 +447,21 @@ const RiskProfile: React.FC = () => {
                 <div className="space-y-4">
                   <h4 className="font-medium">Position Level Risk</h4>
                   <div className="grid sm:grid-cols-1 grid-cols-2 gap-8">
-                    <FormField
-                      control={form.control}
-                      name="max_position_size"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Max Position Size (₹)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormDescription>
-                            {getBestPracticeMessage("max_position_size")}
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <div>
+                      <ToggleableField
+                        form={form}
+                        name="max_position_size"
+                        label="Max Position Size"
+                        isPercentage={maxPosSizeIsPercentage}
+                        setIsPercentage={setMaxPosSizeIsPercentage}
+                        percentageFieldName="_maxPositionSize"
+                        description="max_position_size"
+                      />
+                      <FormDescription>
+                        {getBestPracticeMessage("max_position_size")}
+                      </FormDescription>
+                    </div>
+
                     <div className="mt-1">
                       <ToggleableField
                         form={form}

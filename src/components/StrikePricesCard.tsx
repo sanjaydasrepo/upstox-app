@@ -9,8 +9,8 @@ interface StrikePricesProps {
   handleBuyOption: (option: OptionData) => void;
 }
 const StrikePricesCard: React.FC<StrikePricesProps> = React.memo(
-  ({ strikePrices , handleBuyOption }) => {
-    console.log("handle mounted",handleBuyOption);
+  ({ strikePrices, handleBuyOption }) => {
+    console.log("handle mounted", handleBuyOption);
     useEffect(() => {
       console.log("Strike Paice Card Mounted");
     }, []);

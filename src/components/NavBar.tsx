@@ -12,27 +12,30 @@ import { Plus, Menu, X } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import TradingAccountSelect from "./widgets/TradingAccountSelect";
 import { AccountDropDown } from "./widgets/AccountDropDown";
-import { useRiskSettingsByUser, useTradingAccounts, useUser } from "@/hooks/strapiHooks";
+import {
+  useRiskSettingsByUser,
+  useTradingAccountsByUser,
+  useUser,
+} from "@/hooks/strapiHooks";
 
 interface NavbarProps {
   handleLogout: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
+const Navbar: React.FC = () => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [selectedRiskProfile, setSelectedRiskProfile] = useState("");
   const [selectedAccount, setSelectedAccount] = useState("");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [accountType, setAccountType] = useState(false);
-  
+
   const { data: user } = useUser();
+
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
     useRiskSettingsByUser(user?.documentId ?? "");
 
   const { data: tradingAccounts, isLoading: isTradingLoadingAcccount } =
-    useTradingAccounts({
-      account_status: "active",
-    });
+    useTradingAccountsByUser(user?.documentId ?? "");
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -88,13 +91,13 @@ const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
     <nav className="bg-gray-800 py-2">
       <div className="container px-4">
         <div className="flex justify-between items-center">
-          {/* Logo and Brand */}
           <div className="flex text-white font-bold gap-4">
             <span>Maal</span>
-            <Link to="/" className="block sm:hidden">Home</Link>
+            <Link to="/" className="block sm:hidden">
+              Home
+            </Link>
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="hidden sm:block">
             <Button
               variant="ghost"
@@ -106,7 +109,6 @@ const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
             </Button>
           </div>
 
-          {/* Desktop Navigation */}
           <div className="flex sm:hidden items-center gap-2">
             {!isTradingLoadingAcccount &&
               !isLoadingRiskProfiles &&
@@ -179,12 +181,13 @@ const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
           </div>
         </div>
 
-        {/* Mobile Menu */}
         {isMobileMenuOpen && (
           <div className="hidden sm:block mt-4 pb-4">
             <div className="flex flex-col gap-4">
-              <Link to="/" className="text-white">Home</Link>
-              
+              <Link to="/" className="text-white">
+                Home
+              </Link>
+
               {!isTradingLoadingAcccount &&
                 !isLoadingRiskProfiles &&
                 tradingAccounts &&
@@ -192,9 +195,8 @@ const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
                 tradingAccounts?.data?.length > 0 &&
                 riskProfiles?.data?.length > 0 && (
                   <div className="flex flex-col gap-4">
-                    <div className="bg-[#0A1623] p-4 rounded-lg">
+                    <div className="bg-[#0A1623] p-4 rounded-lg flex items-center px-8">
                       <div className="flex items-center justify-between mb-2">
-                        <span className="text-white">Risk Profile</span>
                         <Button
                           variant="outline"
                           size="icon"
@@ -204,43 +206,46 @@ const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
                           <Plus />
                         </Button>
                       </div>
-                      <Select
-                        value={selectedRiskProfile}
-                        onValueChange={(value: string) => {
-                          setSelectedRiskProfile(value);
-                          localStorage.setItem("default-profile", value);
-                        }}
-                      >
-                        <SelectTrigger className="text-gray-300 text-sm h-8 w-full border-0 bg-[#0A1623] ring-0 focus:ring-0 focus:ring-offset-0">
-                          <SelectValue placeholder="Select Risk Profile">
-                            {selectedRiskProfileData && (
-                              <div className="flex flex-col justify-between items-center w-full px-2">
-                                <span>{selectedRiskProfileData.name}</span>
-                                <span className="text-red-500">
-                                  Risk - {selectedRiskProfileData.severity}
-                                </span>
-                              </div>
-                            )}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent className="border-0 bg-[#0A1623] text-white">
-                          {!isLoadingRiskProfiles &&
-                            riskProfiles?.data?.map((profile, index) => (
-                              <SelectItem
-                                key={profile.documentId + "" + index}
-                                value={profile.documentId ?? ""}
-                                className="hover:bg-[#1E293B] hover:text-white focus:bg-[#1E293B] focus:text-white"
-                              >
-                                <div className="flex justify-between items-center w-full gap-2">
-                                  <span>{profile.name}</span>
+                      <div className="border flex-1 px-16">
+                        {/* <span className="text-white">Risk Profile</span> */}
+                        <Select
+                          value={selectedRiskProfile}
+                          onValueChange={(value: string) => {
+                            setSelectedRiskProfile(value);
+                            localStorage.setItem("default-profile", value);
+                          }}
+                        >
+                          <SelectTrigger className="text-gray-300 text-sm h-8 w-full border-0 bg-[#0A1623] ring-0 focus:ring-0 focus:ring-offset-0">
+                            <SelectValue placeholder="Select Risk Profile">
+                              {selectedRiskProfileData && (
+                                <div className="flex flex-col justify-between items-center w-full px-2">
+                                  <span>{selectedRiskProfileData.name}</span>
                                   <span className="text-red-500">
-                                    {profile.severity}
+                                    Risk - {selectedRiskProfileData.severity}
                                   </span>
                                 </div>
-                              </SelectItem>
-                            ))}
-                        </SelectContent>
-                      </Select>
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="border-0 bg-[#0A1623] text-white">
+                            {!isLoadingRiskProfiles &&
+                              riskProfiles?.data?.map((profile, index) => (
+                                <SelectItem
+                                  key={profile.documentId + "" + index}
+                                  value={profile.documentId ?? ""}
+                                  className="hover:bg-[#1E293B] hover:text-white focus:bg-[#1E293B] focus:text-white"
+                                >
+                                  <div className="flex justify-between items-center w-full gap-2">
+                                    <span>{profile.name}</span>
+                                    <span className="text-red-500">
+                                      {profile.severity}
+                                    </span>
+                                  </div>
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
 
                     <div className="bg-[#0A1623] p-4 rounded-lg">
@@ -256,7 +261,7 @@ const Navbar: React.FC<NavbarProps> = ({ handleLogout }) => {
                   </div>
                 )}
               <div className="mt-2">
-                <AccountDropDown />
+                <AccountDropDown/>
               </div>
             </div>
           </div>
