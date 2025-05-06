@@ -31,15 +31,12 @@ export const useUser = () => {
   });
 };
 
-export const useTradingAccountsByUser = (
-  userId: string
-) => {
+export const useTradingAccountsByUser = () => {
   return useQuery<StrapiArrayResponse<TradingAccount>>({
-    queryKey: ["trading-accounts", userId],
-    enabled: !!userId,
+    queryKey: ["trading-accounts"],
     queryFn: () =>
       axios
-        .get(`/trading-accounts?filters[user][documentId]=${userId}&populate=portfolio`)
+        .get(`/trading-accounts`)
         .then((res) => res.data),
   });
 };
@@ -60,6 +57,17 @@ export const useCreateTradingAccount = () => {
   return useMutation({
     mutationFn: (data: TradingAccount) =>
       axios.post(`/trading-accounts`, { data }).then((res) => res.data),
+  });
+};
+
+export const useUpdateTradingAccount = () => {
+  
+  return useMutation({
+    mutationFn: async (data: Partial<TradingAccount>) =>{
+      const { documentId, ...payloadWithoutId } = data;
+      const res = await axios.put(`/trading-accounts/${data.documentId}`, { data: payloadWithoutId });
+      return res.data;
+    }
   });
 };
 

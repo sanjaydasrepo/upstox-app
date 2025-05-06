@@ -323,7 +323,7 @@ const RiskProfile: React.FC = () => {
     useRiskSettingsByUser(user?.documentId ?? "");
 
   const { data: tradingAccounts, isLoading: isTradingLoadingAcccount } =
-    useTradingAccountsByUser(user?.documentId ?? "");
+    useTradingAccountsByUser();
     
   const navigate = useNavigate();
 
@@ -398,7 +398,7 @@ const RiskProfile: React.FC = () => {
     <div className="container mx-auto sm:p-2 p-6 border">
       <Card className="max-w-2xl mx-auto">
         <CardHeader>
-          <CardTitle>Risk Profile Settings</CardTitle>
+          <CardTitle>Add Risk Profile</CardTitle>
           <CardDescription>
             Configure your trading risk parameters
           </CardDescription>

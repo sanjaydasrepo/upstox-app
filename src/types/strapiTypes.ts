@@ -97,6 +97,7 @@ export interface TradingAccount {
   account_status: AccountStatus;
   initial_balance?: number;
   current_balance?: number;
+  
   broker: BrokerType;
   user?: any;
   trading_credential?: TradingCredential;

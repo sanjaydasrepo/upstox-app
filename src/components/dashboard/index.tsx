@@ -23,7 +23,7 @@ const Dashboard: React.FC = () => {
   
   const { data: user } = useUser();
   
-  const { data: tradingAccounts, isLoading } = useTradingAccountsByUser(user?.documentId ?? "");
+  const { data: tradingAccounts, isLoading } = useTradingAccountsByUser();
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
   useRiskSettingsByUser(user?.documentId ?? "");
   

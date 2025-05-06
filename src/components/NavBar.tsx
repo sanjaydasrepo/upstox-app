@@ -15,8 +15,10 @@ import { AccountDropDown } from "./widgets/AccountDropDown";
 import {
   useRiskSettingsByUser,
   useTradingAccountsByUser,
+  useUpdateTradingAccount,
   useUser,
 } from "@/hooks/strapiHooks";
+import { AccountStatus } from "@/types/strapiTypes";
 
 interface NavbarProps {
   handleLogout: () => void;
@@ -30,20 +32,30 @@ const Navbar: React.FC = () => {
   const [accountType, setAccountType] = useState(false);
 
   const { data: user } = useUser();
+  const { mutateAsync:updateAccount } = useUpdateTradingAccount();
 
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
     useRiskSettingsByUser(user?.documentId ?? "");
 
   const { data: tradingAccounts, isLoading: isTradingLoadingAcccount } =
-    useTradingAccountsByUser(user?.documentId ?? "");
+    useTradingAccountsByUser();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const handleAccountChange = (value: any) => {
-    localStorage.setItem("account-active", value ? "real" : "demo");
-    setAccountType(value);
+  const handleAccountChange = (value: boolean) => {
+    const accountActive = value ? "real" : "demo";
+    localStorage.setItem("account-active",accountActive );
+    const activeAccount = tradingAccounts?.data?.find( ta => ta.account_type === accountActive);
+
+    console.log(`active account `, tradingAccounts?.data );
+    updateAccount({
+      documentId:activeAccount?.documentId,
+      account_status:AccountStatus.ACTIVE
+    }).then(()=>{
+      setAccountType(value);
+    })
   };
 
   const selectedRiskProfileData = riskProfiles?.data?.find(
