@@ -15,10 +15,11 @@ import { AccountDropDown } from "./widgets/AccountDropDown";
 import {
   useRiskSettingsByUser,
   useTradingAccountsByUser,
+  useUpdateRiskSettings,
   useUpdateTradingAccount,
   useUser,
 } from "@/hooks/strapiHooks";
-import { AccountStatus } from "@/types/strapiTypes";
+import { AccountStatus, RiskSetting } from "@/types/strapiTypes";
 
 interface NavbarProps {
   handleLogout: () => void;
@@ -32,7 +33,8 @@ const Navbar: React.FC = () => {
   const [accountType, setAccountType] = useState(false);
 
   const { data: user } = useUser();
-  const { mutateAsync:updateAccount } = useUpdateTradingAccount();
+  const { mutateAsync: updateAccount } = useUpdateTradingAccount();
+  const { mutateAsync: updateRiskSetting } = useUpdateRiskSettings();
 
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
     useRiskSettingsByUser(user?.documentId ?? "");
@@ -45,17 +47,20 @@ const Navbar: React.FC = () => {
   };
 
   const handleAccountChange = (value: boolean) => {
-    const accountActive = value ? "real" : "demo";
-    localStorage.setItem("account-active",accountActive );
-    const activeAccount = tradingAccounts?.data?.find( ta => ta.account_type === accountActive);
+    const accountActive = value ? "live" : "demo";
+    localStorage.setItem("account-active", accountActive);
+    const activeAccount = tradingAccounts?.data?.find(
+      (ta) => ta.account_type === accountActive
+    );
 
-    console.log(`active account `, tradingAccounts?.data );
+    console.log(`active account `, tradingAccounts?.data);
     updateAccount({
-      documentId:activeAccount?.documentId,
-      account_status:AccountStatus.ACTIVE
-    }).then(()=>{
+      documentId: activeAccount?.documentId,
+      account_status: AccountStatus.ACTIVE,
+      broker: activeAccount?.broker,
+    }).then(() => {
       setAccountType(value);
-    })
+    });
   };
 
   const selectedRiskProfileData = riskProfiles?.data?.find(
@@ -65,32 +70,41 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const activeAccount = localStorage.getItem("account-active");
-    const defaultBroker = localStorage.getItem("default-broker");
-
-    if (activeAccount && activeAccount === "real") {
-      setAccountType(true);
-    } else {
-      setAccountType(false);
-    }
-
-    if (defaultBroker) {
-      setSelectedAccount(defaultBroker);
-    } else if (tradingAccounts && tradingAccounts?.data?.length > 0) {
-      setSelectedAccount(tradingAccounts?.data[0]?.documentId ?? "");
-    }
-  }, []);
+    if (isTradingLoadingAcccount) return;
+    
+    if (
+      tradingAccounts?.data &&
+      tradingAccounts?.data?.length > 0
+    ) {
+      const activeAcc = tradingAccounts.data.find(
+        (ta) => ta.account_status === "active"
+        );
+        if (activeAcc && activeAcc.documentId) {
+        setSelectedAccount(activeAcc.broker);
+        setAccountType( activeAcc.account_type === 'live' ? true: false )
+      }
+    } 
+  }, [tradingAccounts, isTradingLoadingAcccount]);
 
   useEffect(() => {
-    const defaultRiskProfile = localStorage.getItem("default-profile");
-    if (defaultRiskProfile) {
-      setSelectedRiskProfile(defaultRiskProfile);
-    } else if (riskProfiles && riskProfiles?.data?.length > 0) {
-      if (riskProfiles?.data[0].documentId)
-        setSelectedRiskProfile(riskProfiles?.data[0].documentId);
+    if( isLoadingRiskProfiles ) return;
+    
+    if (riskProfiles && riskProfiles?.data?.length > 0) {
+      const activeRP = riskProfiles?.data?.find( rp=> rp.active);
+      if( activeRP && activeRP.documentId) {
+        setSelectedRiskProfile(activeRP.documentId);
+      }
     }
-  }, [riskProfiles]);
+  }, [riskProfiles , isLoadingRiskProfiles ]);
 
+  const handleChangeRiskProfile = ( value: string) =>{
+    console.log("auoaudsasd ", value );
+    updateRiskSetting({
+      documentId: value
+    }).then(()=>{
+      setSelectedRiskProfile( value );
+    })
+  }
   const handleAddRiskProfile = () => {
     navigate(`/risk-profile/new`);
   };
@@ -141,10 +155,7 @@ const Navbar: React.FC = () => {
                     <div className="flex flex-col px-4">
                       <Select
                         value={selectedRiskProfile}
-                        onValueChange={(value: string) => {
-                          setSelectedRiskProfile(value);
-                          localStorage.setItem("default-profile", value);
-                        }}
+                        onValueChange={(value: string) => handleChangeRiskProfile(value) }
                       >
                         <SelectTrigger className="text-gray-300 text-sm h-8 w-full border-0 bg-[#0A1623] ring-0 focus:ring-0 focus:ring-offset-0">
                           <SelectValue placeholder="Select Risk Profile">
@@ -273,7 +284,7 @@ const Navbar: React.FC = () => {
                   </div>
                 )}
               <div className="mt-2">
-                <AccountDropDown/>
+                <AccountDropDown />
               </div>
             </div>
           </div>

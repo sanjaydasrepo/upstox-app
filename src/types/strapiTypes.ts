@@ -76,6 +76,7 @@ export interface RiskSetting {
   trading_account?: TradingAccount;
   severity:string;
   users?:any;
+  active?:boolean;
 }
 
 export interface Trade {

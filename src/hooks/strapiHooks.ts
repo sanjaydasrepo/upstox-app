@@ -61,13 +61,18 @@ export const useCreateTradingAccount = () => {
 };
 
 export const useUpdateTradingAccount = () => {
-  
+  const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (data: Partial<TradingAccount>) =>{
-      const { documentId, ...payloadWithoutId } = data;
-      const res = await axios.put(`/trading-accounts/${data.documentId}`, { data: payloadWithoutId });
+      const res = await axios.post(`/trading-accounts/toggle-active-status`,  data );
       return res.data;
-    }
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['risk-settings-by-filter',"trading-account"],
+      });
+      console.log('Queries invalidated');
+    },
   });
 };
 
@@ -126,7 +131,7 @@ export const useRiskSettingsByUser = (
     enabled: !!userId ,
     queryFn: () =>
       axios
-        .get(`/risk-settings?filters[users][documentId]=${userId}`)
+        .get(`/risk-settings?sort=active:desc`)
         .then((res) => res.data),
   })
 }
@@ -135,6 +140,22 @@ export const useCreateRiskSettings = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: RiskSetting) => axios.post(`/risk-settings`, { data }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['risk-settings-by-filter'],
+      });
+      console.log('Queries invalidated');
+    },
+  });
+};
+
+export const useUpdateRiskSettings = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: Partial<RiskSetting>) =>{
+      const res = await axios.post(`/risk-settings/update-active-status`,  data );
+      return res.data;
+    },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({
         queryKey: ['risk-settings-by-filter'],
