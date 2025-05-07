@@ -29,6 +29,7 @@ import axiosInstanceBk from "@/utils/axiosConfigBk";
 import {
   useCreateTradingAccount,
   useCreateTradingCredentials,
+  useTradingAccountsByUser,
   useUser,
 } from "@/hooks/strapiHooks";
 import axiosInstance from "@/utils/axiosConfig";
@@ -43,10 +44,11 @@ import {
 } from "@/types/strapiTypes";
 
 interface AccountFormData {
-  accountType: "zerodha" | "upstocks";
+  name: string;
+  accountType: "zerodha" | "upstox";
   apiKey: string;
   secret: string;
-  priority: 'low' | 'medium' | 'high';
+  priority: "low" | "medium" | "high";
 }
 
 const Account: React.FC = () => {
@@ -58,6 +60,9 @@ const Account: React.FC = () => {
   const { mutateAsync: createTradingAccount } = useCreateTradingAccount();
   const { mutateAsync: createTradingCredential } =
     useCreateTradingCredentials();
+  const { data: tradingAccounts, isLoading: isTradingLoadingAcccount , refetch: refetchTradingAccounts } =
+      useTradingAccountsByUser();
+
   const { data: user } = useUser();
   const navigate = useNavigate();
 
@@ -69,87 +74,47 @@ const Account: React.FC = () => {
       formData = JSON.parse(formDataRaw);
     }
 
-    console.log("form data ", formData );
+    console.log("form data ", formData);
 
     try {
-      const realAccount = await axiosInstance.get<
-        StrapiArrayResponse<TradingAccount>
-      >(
-        `/trading-accounts?filters[user][documentId]=${user?.documentId}&filters[broker]=${broker}&filters[account_type]=live`
+      const dummyRealAccountData = {
+        name: `Real-Account-${broker}`,
+        account_type: AccountType.LIVE,
+        account_status: AccountStatus.ACTIVE,
+        initial_balance: 50000,
+        current_balance: 50000,
+        broker: broker as BrokerType,
+        user: user?.id,
+      };
+
+      const createdRealAccount = await createTradingAccount(
+        dummyRealAccountData
       );
 
-      const demoAccount = await axiosInstance.get<
-        StrapiArrayResponse<TradingAccount>
-      >(
-        `/trading-accounts?filters[user][documentId]=${user?.documentId}&filters[broker]=${broker}&filters[account_type]=demo`
-      );
+      const demoAccountData = {
+        name: `Demo-Account-${broker}`,
+        account_type: AccountType.DEMO,
+        account_status: AccountStatus.ACTIVE,
+        initial_balance: 100000,
+        current_balance: 100000,
+        broker: broker as BrokerType,
+        user: user?.id,
+      };
 
-      let createdRealAccount;
-      let createdDemoAccount;
+      const createdDemoAccount = await createTradingAccount(demoAccountData);
 
-      if (!realAccount.data?.data.length) {
-        // TODO: Fetch actual values from Upstox API
-        const dummyRealAccountData = {
-          name: `Real-Account-${broker}`,
-          account_type: AccountType.LIVE,
-          account_status: AccountStatus.ACTIVE,
-          initial_balance: 50000,
-          current_balance: 50000,
-          broker: broker as BrokerType,
-          user: user?.id,
-        };
+      if (createdRealAccount && createdDemoAccount) {
+        const accountIds = [createTradingAccount?.data , createdDemoAccount.data]
 
-        createdRealAccount = await createTradingAccount(dummyRealAccountData);
-      }
-
-      if (!demoAccount.data?.data.length) {
-        const demoAccountData = {
-          name: `Demo-Account-${broker}`,
-          account_type: AccountType.DEMO,
-          account_status: AccountStatus.ACTIVE,
-          initial_balance: 100000,
-          current_balance: 100000,
-          broker: broker as BrokerType,
-          user: user?.id,
-        };
-
-        createdDemoAccount = await createTradingAccount(demoAccountData);
-      }
-
-      const allAccounts = [
-        ...(realAccount.data?.data || []),
-        ...(demoAccount.data?.data || []),
-        createdRealAccount?.data,
-        createdDemoAccount?.data,
-      ].filter(Boolean);
-
-      const firstAccountId = allAccounts[0]?.documentId;
-
-      if (!firstAccountId) {
-        console.error("No trading accounts found or created");
-        return false;
-      }
-
-      if (firstAccountId) {
-        const existingCreds = await axiosInstance.get<
-          StrapiArrayResponse<TradingCredential>
-        >(
-          `/trading-credentials?filters[trading_accounts][documentId]=${firstAccountId}`
-        );
-
-        if (!existingCreds.data?.data.length) {
-          const accountIds = allAccounts.map((account) => account.documentId);
-
-          await createTradingCredential({
-            api_key: formData?.apiKey,
-            api_secret: formData?.secret,
-            access_token: token,
-            is_active: true,
-            trading_accounts: {
-              connect: accountIds,
-            },
-          });
-        }
+        await createTradingCredential({
+          api_key: formData?.apiKey,
+          api_secret: formData?.secret,
+          access_token: token,
+          is_active: true,
+          trading_accounts: {
+            connect: accountIds,
+          },
+        });
       }
       return true;
     } catch (error) {
@@ -159,34 +124,55 @@ const Account: React.FC = () => {
   };
 
   useEffect(() => {
-    console.log("avvvv ", action );
-    if( action && action === 'new') {
+    console.log("avvvv ", action);
+    if (action && action === "new") {
       const searchParams = new URLSearchParams(location.search);
       const token = searchParams.get("token");
       const state = searchParams.get("state") || "upstox";
 
-      console.log("Received token:",state, token);
+      console.log("Received token:", state, token);
 
       if (token && user) {
         setLoading(true);
-        saveAccountDetails(token, state).then( resp =>{
-          console.log("Received token:", token, state , resp );
-          navigate(`/`,{ replace: true });
+        saveAccountDetails(token, state).then((resp) => {
+          console.log("Received token:", token, state, resp);
+          navigate(`/`, { replace: true });
         });
       }
     }
-  }, [location.search, user , action ]);
+  }, [location.search, user, action]);
+
+  useEffect(() => {
+    const apiKeyValidation = async (value: any) => {
+      if (!value) return true;
+
+      try {
+        const resp = await axiosInstance.get<
+          StrapiArrayResponse<TradingCredential>
+        >(`/trading-credentials?filters[api_key]=${value}`);
+        return resp.data.data.length === 0 || "Key already exists.";
+      } catch (err) {
+        console.log("API validation error:", err);
+        return true;
+      }
+    };
+
+    form.register("apiKey", {
+      validate: apiKeyValidation,
+    });
+  }, [form.register]);
 
   const onSubmit = async (data: AccountFormData) => {
     setLoading(true);
+
     localStorage.setItem("formdata", JSON.stringify(data));
     try {
-      console.log("resp is ", data );
+      console.log("resp is ", data);
       const resp = await axiosInstanceBk.post(
         "/auth/upstox",
         JSON.stringify(data)
       );
-      console.log("resp is ", resp );
+      console.log("resp is ", resp);
 
       if (resp.status === 200) {
         window.location.href = resp.data.url;

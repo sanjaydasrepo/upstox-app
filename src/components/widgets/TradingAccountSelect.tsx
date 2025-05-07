@@ -11,6 +11,12 @@ import {
 } from "@/components/ui/select";
 import { TradingAccount } from "@/types/strapiTypes";
 
+interface BrokerOption {
+  value: string | undefined;
+  originalBroker: string;
+  displayName: string;
+}
+
 interface TradingAccountSelectProps {
   tradingAccounts: TradingAccount[];
   selectedBroker: string;
@@ -28,6 +34,37 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
   handleAccountChange,
   handleAddNewAccount,
 }) => {
+  const generateNumberedBrokerOptions = (
+    tradingAccounts: TradingAccount[]
+  ): BrokerOption[] => {
+    const brokerCounts: Record<string, number> = {};
+
+    const numberedBrokers = tradingAccounts
+      .filter((td) => td.account_type === "live")
+      .map((account) => {
+        const brokerName = account.broker;
+
+        if (!brokerCounts[brokerName]) {
+          brokerCounts[brokerName] = 1;
+        }
+
+        const displayName = `${brokerName} ${brokerCounts[brokerName]}`;
+
+        brokerCounts[brokerName]++;
+
+        return {
+          value: account.documentId,
+          originalBroker: brokerName,
+          displayName,
+        };
+      });
+
+    return numberedBrokers;
+  };
+
+  const brokerOptions: BrokerOption[] =
+    generateNumberedBrokerOptions(tradingAccounts);
+
   const uniqueBrokers = Array.from(
     new Set(tradingAccounts.map((acc) => acc.broker))
   );
@@ -81,7 +118,7 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
             </div>
           )}
         </div>
-        {uniqueBrokers?.length > 0 && (
+        {brokerOptions?.length > 0 && (
           <Select
             value={selectedBroker}
             onValueChange={(value: string) => {
@@ -93,13 +130,13 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
               <SelectValue placeholder="Select Trading Account" />
             </SelectTrigger>
             <SelectContent className="border-0 bg-[#0A1623] text-white">
-              {uniqueBrokers.map((broker) => (
+              {brokerOptions.map((broker) => (
                 <SelectItem
-                  key={broker}
-                  value={broker}
+                  key={broker.value}
+                  value={broker.originalBroker}
                   className="hover:bg-[#1E293B] hover:text-white focus:bg-[#1E293B] focus:text-white"
                 >
-                  {broker}
+                  {broker.displayName}
                 </SelectItem>
               ))}
             </SelectContent>
