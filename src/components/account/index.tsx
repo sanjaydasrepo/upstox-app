@@ -58,11 +58,6 @@ const Account: React.FC = () => {
   const [loading, setLoading] = useState(false);
 
   const { mutateAsync: createTradingAccount } = useCreateTradingAccount();
-  const { mutateAsync: createTradingCredential } =
-    useCreateTradingCredentials();
-  const { data: tradingAccounts, isLoading: isTradingLoadingAcccount , refetch: refetchTradingAccounts } =
-      useTradingAccountsByUser();
-
   const { data: user } = useUser();
   const navigate = useNavigate();
 
@@ -77,8 +72,8 @@ const Account: React.FC = () => {
     console.log("form data ", formData);
 
     try {
-      const dummyRealAccountData = {
-        name: `Real-Account-${broker}`,
+      const accountData = {
+        name: `Account-${broker}`,
         account_type: AccountType.LIVE,
         account_status: AccountStatus.ACTIVE,
         initial_balance: 50000,
@@ -87,35 +82,9 @@ const Account: React.FC = () => {
         user: user?.id,
       };
 
-      const createdRealAccount = await createTradingAccount(
-        dummyRealAccountData
+      await createTradingAccount(
+        accountData
       );
-
-      const demoAccountData = {
-        name: `Demo-Account-${broker}`,
-        account_type: AccountType.DEMO,
-        account_status: AccountStatus.ACTIVE,
-        initial_balance: 100000,
-        current_balance: 100000,
-        broker: broker as BrokerType,
-        user: user?.id,
-      };
-
-      const createdDemoAccount = await createTradingAccount(demoAccountData);
-
-      if (createdRealAccount && createdDemoAccount) {
-        const accountIds = [createTradingAccount?.data , createdDemoAccount.data]
-
-        await createTradingCredential({
-          api_key: formData?.apiKey,
-          api_secret: formData?.secret,
-          access_token: token,
-          is_active: true,
-          trading_accounts: {
-            connect: accountIds,
-          },
-        });
-      }
       return true;
     } catch (error) {
       console.error("Error saving account details:", error);
