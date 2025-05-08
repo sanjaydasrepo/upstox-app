@@ -43,12 +43,13 @@ import {
   TradingCredential,
 } from "@/types/strapiTypes";
 
-interface AccountFormData {
+export interface AccountFormData {
   name: string;
   accountType: "zerodha" | "upstox";
   apiKey: string;
   secret: string;
   priority: "low" | "medium" | "high";
+  access_token?:string;
 }
 
 const Account: React.FC = () => {
@@ -72,18 +73,10 @@ const Account: React.FC = () => {
     console.log("form data ", formData);
 
     try {
-      const accountData = {
-        name: `Account-${broker}`,
-        account_type: AccountType.LIVE,
-        account_status: AccountStatus.ACTIVE,
-        initial_balance: 50000,
-        current_balance: 50000,
-        broker: broker as BrokerType,
-        user: user?.id,
-      };
-
+      formData.name = `${formData.accountType}`;
+      formData.access_token = token;
       await createTradingAccount(
-        accountData
+        formData
       );
       return true;
     } catch (error) {

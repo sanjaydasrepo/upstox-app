@@ -94,8 +94,8 @@ export interface TradingAccount {
   id?: number;
   name: string;
   documentId?: string;
-  account_type: AccountType;
-  account_status: AccountStatus;
+  account_type?: AccountType;
+  account_status?: AccountStatus;
   initial_balance?: number;
   current_balance?: number;
   

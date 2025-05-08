@@ -1,3 +1,4 @@
+import { AccountFormData } from "@/components/account";
 import {
   Portfolio,
   RiskSetting,
@@ -55,7 +56,7 @@ export const useTradingAccount = (
 
 export const useCreateTradingAccount = () => {
   return useMutation({
-    mutationFn: (data: TradingAccount) =>
+    mutationFn: (data: AccountFormData) =>
       axios.post(`/trading-accounts`, { data }).then((res) => res.data),
   });
 };
