@@ -48,8 +48,16 @@ export interface AccountFormData {
   accountType: "zerodha" | "upstox";
   apiKey: string;
   secret: string;
-  priority: "low" | "medium" | "high";
-  access_token?:string;
+  access_token?: string;
+}
+export interface Payload {
+  account_type: "zerodha" | "upstox";
+  broker: string;
+  credentials: {
+    api_key: string;
+    api_secret: string;
+    access_token?: string;
+  };
 }
 
 const Account: React.FC = () => {
@@ -70,14 +78,21 @@ const Account: React.FC = () => {
       formData = JSON.parse(formDataRaw);
     }
 
-    console.log("form data ", formData);
-
     try {
-      formData.name = `${formData.accountType}`;
-      formData.access_token = token;
-      await createTradingAccount(
-        formData
-      );
+      const payload: Payload = {
+        account_type: formData.accountType,
+        broker: formData.accountType,
+        credentials:{
+          api_key: formData.apiKey,
+          access_token: token,
+          api_secret: formData.secret
+        }
+      };
+     
+      const resp = await createTradingAccount(payload);
+      if( resp ) {
+        navigate(`/`, { replace: true });
+      }
       return true;
     } catch (error) {
       console.error("Error saving account details:", error);
