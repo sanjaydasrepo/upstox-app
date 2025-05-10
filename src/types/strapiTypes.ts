@@ -105,6 +105,8 @@ export interface TradingAccount {
   trades?: Trade[];
   portfolio?: Portfolio;
   risk_setting?: RiskSetting;
+
+  isLinkedWithBrokerAccount?: boolean
 }
 
 export interface TradingCredential {

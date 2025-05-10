@@ -70,21 +70,14 @@ const Account: React.FC = () => {
   const { data: user } = useUser();
   const navigate = useNavigate();
 
-  const saveAccountDetails = async (token: string, broker: string) => {
-    let formDataRaw = localStorage.getItem("formdata");
-    let formData = {} as AccountFormData;
-
-    if (formDataRaw) {
-      formData = JSON.parse(formDataRaw);
-    }
-
+  const saveAccountDetails = async (formData: AccountFormData) => {
     try {
       const payload: Payload = {
         account_type: formData.accountType,
         broker: formData.accountType,
         credentials:{
           api_key: formData.apiKey,
-          access_token: token,
+          access_token: "",
           api_secret: formData.secret
         }
       };
@@ -111,10 +104,6 @@ const Account: React.FC = () => {
 
       if (token && user) {
         setLoading(true);
-        saveAccountDetails(token, state).then((resp) => {
-          console.log("Received token:", token, state, resp);
-          navigate(`/`, { replace: true });
-        });
       }
     }
   }, [location.search, user, action]);
@@ -122,7 +111,6 @@ const Account: React.FC = () => {
   useEffect(() => {
     const apiKeyValidation = async (value: any) => {
       if (!value) return true;
-
       try {
         const resp = await axiosInstance.get<
           StrapiArrayResponse<TradingCredential>
@@ -141,13 +129,10 @@ const Account: React.FC = () => {
 
   const onSubmit = async (data: AccountFormData) => {
     setLoading(true);
-
-    localStorage.setItem("formdata", JSON.stringify(data));
     try {
-      console.log("resp is ", data);
+      await saveAccountDetails(data);
       const resp = await axiosInstanceBk.post(
-        "/auth/upstox",
-        JSON.stringify(data)
+        "/auth/upstox"
       );
       console.log("resp is ", resp);
 
