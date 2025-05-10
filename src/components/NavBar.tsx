@@ -76,12 +76,17 @@ const Navbar: React.FC = () => {
       tradingAccounts?.data &&
       tradingAccounts?.data?.length > 0
     ) {
-      const activeAcc = tradingAccounts.data.find(
-        (ta) => ta.account_status === "active"
+      const defaultBroker = localStorage.getItem('default-broker');
+
+      const activeAcc = tradingAccounts.data.filter(
+        (ta) => ta.documentId === defaultBroker
         );
-        if (activeAcc && activeAcc.documentId) {
-        setSelectedAccount(activeAcc.broker);
-        setAccountType( activeAcc.account_type === 'live' ? true: false )
+
+        if (activeAcc && activeAcc.length > 0) {
+          if( activeAcc[0].documentId ){
+            setSelectedAccount(activeAcc[0].documentId);
+            setAccountType( activeAcc[0].account_type === 'live' ? true: false )
+          }
       }
     } 
   }, [tradingAccounts, isTradingLoadingAcccount]);

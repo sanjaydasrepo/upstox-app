@@ -65,8 +65,12 @@ const Account: React.FC = () => {
   const location = useLocation();
   const form = useForm<AccountFormData>();
   const [loading, setLoading] = useState(false);
+  const [reeconnectAccount, setReconnectAccount] = useState();
 
   const { mutateAsync: createTradingAccount } = useCreateTradingAccount();
+  const { data: tradingAccounts, isLoading: isTradingLoadingAcccount } =
+    useTradingAccountsByUser();
+
   const { data: user } = useUser();
   const navigate = useNavigate();
 
@@ -75,47 +79,46 @@ const Account: React.FC = () => {
       const payload: Payload = {
         account_type: formData.accountType,
         broker: formData.accountType,
-        credentials:{
+        credentials: {
           api_key: formData.apiKey,
           access_token: "",
-          api_secret: formData.secret
-        }
+          api_secret: formData.secret,
+        },
       };
-     
+
       const resp = await createTradingAccount(payload);
-      if( resp ) {
-        navigate(`/`, { replace: true });
-      }
-      return true;
+      return resp;
     } catch (error) {
       console.error("Error saving account details:", error);
       return false;
     }
   };
 
-  useEffect(() => {
-    console.log("avvvv ", action);
-    if (action && action === "new") {
-      const searchParams = new URLSearchParams(location.search);
-      const token = searchParams.get("token");
-      const state = searchParams.get("state") || "upstox";
-
-      console.log("Received token:", state, token);
-
-      if (token && user) {
-        setLoading(true);
-      }
-    }
-  }, [location.search, user, action]);
 
   useEffect(() => {
     const apiKeyValidation = async (value: any) => {
-      if (!value) return true;
+      if (!value || isTradingLoadingAcccount) return true;
       try {
         const resp = await axiosInstance.get<
           StrapiArrayResponse<TradingCredential>
         >(`/trading-credentials?filters[api_key]=${value}`);
-        return resp.data.data.length === 0 || "Key already exists.";
+        if (
+          resp.data.data.length > 0 &&
+          tradingAccounts?.data &&
+          tradingAccounts?.data?.length > 0
+        ) {
+          const linkedAccs = tradingAccounts.data.filter(
+            (td) => td.account_type === "live" && td.isLinkedWithBrokerAccount
+          );
+          if (linkedAccs.length > 0) {
+            return "Key already exists.";
+          } else {
+            // setReconnectAccount();
+            return "Reconnecting ...";
+          }
+        } else {
+          return true;
+        }
       } catch (err) {
         console.log("API validation error:", err);
         return true;
@@ -125,21 +128,23 @@ const Account: React.FC = () => {
     form.register("apiKey", {
       validate: apiKeyValidation,
     });
-  }, [form.register]);
+  }, [form.register, isTradingLoadingAcccount, tradingAccounts]);
 
   const onSubmit = async (data: AccountFormData) => {
     setLoading(true);
     try {
-      await saveAccountDetails(data);
-      const resp = await axiosInstanceBk.post(
-        "/auth/upstox"
-      );
-      console.log("resp is ", resp);
+      const accResp = await saveAccountDetails(data);
 
-      if (resp.status === 200) {
-        window.location.href = resp.data.url;
-      } else {
-        console.error("Error connecting account", resp);
+      console.log(`console `, accResp);
+      if (accResp) {
+        const resp = await axiosInstanceBk.post("/auth/upstox");
+        console.log("resp is ", resp);
+
+        if (resp.status === 200) {
+          window.location.href = resp.data.url;
+        } else {
+          console.error("Error connecting account", resp);
+        }
       }
     } catch (error) {
       console.error("Submission error:", error);

@@ -40,7 +40,7 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
     const brokerCounts: Record<string, number> = {};
 
     const numberedBrokers = tradingAccounts
-      .filter((td) => td.account_type === "live")
+      .filter((td) => td.account_type === "live" && td.isLinkedWithBrokerAccount )
       .map((account) => {
         const brokerName = account.broker;
 
@@ -65,12 +65,8 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
   const brokerOptions: BrokerOption[] =
     generateNumberedBrokerOptions(tradingAccounts);
 
-  const uniqueBrokers = Array.from(
-    new Set(tradingAccounts.map((acc) => acc.broker))
-  );
-
   const selectedBrokerAccounts = tradingAccounts.filter(
-    (acc) => acc.broker === selectedBroker
+    (acc) => acc.documentId === selectedBroker
   );
 
   // Get current balance based on account type
@@ -88,6 +84,10 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
     }).format(amount);
   };
 
+  console.log("asdadasdasd asdasd" , brokerOptions );
+  if( brokerOptions.length === 0 ){
+    return null;
+  }
   return (
     <div className="flex gap-2 bg-[#0A1623] py-1 px-4 rounded-lg items-center min-h-[70px]">
       <Button
@@ -122,8 +122,9 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
           <Select
             value={selectedBroker}
             onValueChange={(value: string) => {
+              console.log("isisis ", value );
               setSelectedBroker(value);
-              localStorage.setItem("default-broker", value);
+              localStorage.setItem('default-broker', value);
             }}
           >
             <SelectTrigger className="text-gray-300 text-sm h-8 w-full border-0 bg-[#0A1623] ring-0 focus:ring-0 focus:ring-offset-0">
@@ -133,7 +134,7 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
               {brokerOptions.map((broker) => (
                 <SelectItem
                   key={broker.value}
-                  value={broker.originalBroker}
+                  value={broker.value || ""}
                   className="hover:bg-[#1E293B] hover:text-white focus:bg-[#1E293B] focus:text-white"
                 >
                   {broker.displayName}
