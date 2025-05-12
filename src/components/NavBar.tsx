@@ -39,26 +39,17 @@ const Navbar: React.FC = () => {
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
     useRiskSettingsByUser(user?.documentId ?? "");
 
-  const { data: tradingAccounts, isLoading: isTradingLoadingAcccount } =
+  const { data: tradingAccounts, isLoading: isTradingLoadingAcccount , refetch: refetchTdAccounts} =
     useTradingAccountsByUser();
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const handleAccountChange = (value: boolean) => {
-    const accountActive = value ? "live" : "demo";
-    localStorage.setItem("account-active", accountActive);
-    const activeAccount = tradingAccounts?.data?.find(
-      (ta) => ta.account_type === accountActive
-    );
-
-    console.log(`active account `, tradingAccounts?.data);
+  const handleAccountChange = (value:boolean) => {
     updateAccount({
-      documentId: activeAccount?.documentId,
-      account_status: AccountStatus.ACTIVE,
-      broker: activeAccount?.broker,
-    }).then(() => {
+      documentId: selectedAccount
+    }).then(( resp ) => {
       setAccountType(value);
     });
   };
@@ -71,51 +62,60 @@ const Navbar: React.FC = () => {
 
   useEffect(() => {
     if (isTradingLoadingAcccount) return;
-    
-    if (
-      tradingAccounts?.data &&
-      tradingAccounts?.data?.length > 0
-    ) {
-      const defaultBroker = localStorage.getItem('default-broker');
 
-      const activeAcc = tradingAccounts.data.filter(
-        (ta) => ta.documentId === defaultBroker
-        );
+    if (tradingAccounts?.data && tradingAccounts?.data?.length > 0) {
+      const selectedAccount = localStorage.getItem("default-selected-account");
 
-        if (activeAcc && activeAcc.length > 0) {
-          if( activeAcc[0].documentId ){
-            setSelectedAccount(activeAcc[0].documentId);
-            setAccountType( activeAcc[0].account_type === 'live' ? true: false )
-          }
+      const activeAcc = tradingAccounts.data.find(
+        (ta) => ta.documentId === selectedAccount
+      );
+
+      if (activeAcc && activeAcc.documentId) {
+        setSelectedAccount(activeAcc.documentId);
+        const isLiveActive =
+          activeAcc.account_status === "active" ? true : false;
+
+        setAccountType(isLiveActive);
       }
-    } 
+    }
   }, [tradingAccounts, isTradingLoadingAcccount]);
 
   useEffect(() => {
-    if( isLoadingRiskProfiles ) return;
-    
+    if (isLoadingRiskProfiles) return;
+
     if (riskProfiles && riskProfiles?.data?.length > 0) {
-      const activeRP = riskProfiles?.data?.find( rp=> rp.active);
-      if( activeRP && activeRP.documentId) {
+      const activeRP = riskProfiles?.data?.find((rp) => rp.active);
+      if (activeRP && activeRP.documentId) {
         setSelectedRiskProfile(activeRP.documentId);
       }
     }
-  }, [riskProfiles , isLoadingRiskProfiles ]);
+  }, [riskProfiles, isLoadingRiskProfiles]);
 
-  const handleChangeRiskProfile = ( value: string) =>{
-    console.log("auoaudsasd ", value );
+  const handleChangeRiskProfile = (value: string) => {
+    console.log("auoaudsasd ", value);
     updateRiskSetting({
-      documentId: value
-    }).then(()=>{
-      setSelectedRiskProfile( value );
-    })
-  }
+      documentId: value,
+    }).then(() => {
+      setSelectedRiskProfile(value);
+    });
+  };
   const handleAddRiskProfile = () => {
     navigate(`/risk-profile/new`);
   };
 
   const handleAddNewAccount = () => {
     navigate(`/account/new`);
+  };
+
+  const handleSetSelectedAccount = (value: string) => {
+    setSelectedAccount(value);
+    const liveAccount = tradingAccounts?.data?.find(
+      (td) => td.documentId === value
+    );
+    const activeAccount =
+      liveAccount?.account_status === "active" ? true : false;
+    setAccountType(activeAccount);
+    refetchTdAccounts();
   };
 
   return (
@@ -160,7 +160,9 @@ const Navbar: React.FC = () => {
                     <div className="flex flex-col px-4">
                       <Select
                         value={selectedRiskProfile}
-                        onValueChange={(value: string) => handleChangeRiskProfile(value) }
+                        onValueChange={(value: string) =>
+                          handleChangeRiskProfile(value)
+                        }
                       >
                         <SelectTrigger className="text-gray-300 text-sm h-8 w-full border-0 bg-[#0A1623] ring-0 focus:ring-0 focus:ring-offset-0">
                           <SelectValue placeholder="Select Risk Profile">
@@ -198,7 +200,7 @@ const Navbar: React.FC = () => {
                   <TradingAccountSelect
                     tradingAccounts={tradingAccounts?.data || []}
                     selectedBroker={selectedAccount}
-                    setSelectedBroker={setSelectedAccount}
+                    handleSetSelectedAccount={handleSetSelectedAccount}
                     accountType={accountType}
                     handleAccountChange={handleAccountChange}
                     handleAddNewAccount={handleAddNewAccount}
@@ -280,7 +282,7 @@ const Navbar: React.FC = () => {
                       <TradingAccountSelect
                         tradingAccounts={tradingAccounts?.data || []}
                         selectedBroker={selectedAccount}
-                        setSelectedBroker={setSelectedAccount}
+                        handleSetSelectedAccount={handleSetSelectedAccount}
                         accountType={accountType}
                         handleAccountChange={handleAccountChange}
                         handleAddNewAccount={handleAddNewAccount}

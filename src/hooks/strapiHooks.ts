@@ -35,7 +35,7 @@ export const useUser = () => {
 export const useTradingAccountsByUser = () => {
   return useQuery<StrapiArrayResponse<TradingAccount>>({
     queryKey: ["trading-accounts"],
-    queryFn: () => axios.get(`/trading-accounts`).then((res) => res.data),
+    queryFn: () => axios.get(`/trading-accounts?filters[account_type]=live&filters[isLinkedWithBrokerAccount]=true&populate=demo_account`).then((res) => res.data),
   });
 };
 
