@@ -97,6 +97,8 @@ const Navbar: React.FC = () => {
       documentId: value,
     }).then(() => {
       setSelectedRiskProfile(value);
+    }).catch(err=>{
+      console.log("api aerer ", err );
     });
   };
   const handleAddRiskProfile = () => {
