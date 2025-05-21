@@ -78,9 +78,9 @@ export const useApiErrorHandler = () => {
         variant: "destructive",
       });
       // Clear the token that's used in your axios interceptor
-      localStorage.removeItem("token");
+      //localStorage.removeItem("token");
       // Redirect to login
-      navigate("/login");
+      //navigate("/login");
       return;
     }
 
@@ -183,7 +183,7 @@ export const useCreateTradingAccount = () => {
         return response.data;
       } catch (error) {
         errorHandler(error);
-        throw error;
+        return null;
       }
     },
     onSuccess: () => {
@@ -207,7 +207,7 @@ export const useUpdateTradingAccount = () => {
       } catch (error) {
        
         errorHandler(error);
-        throw error;
+        return null;
       }
     },
     onSuccess: () => {
@@ -325,7 +325,7 @@ export const useCreateRiskSettings = () => {
         return response.data;
       } catch (error) {
         errorHandler(error);
-        throw error;
+        return null;
       }
     },
     onSuccess: () => {
@@ -347,10 +347,11 @@ export const useUpdateRiskSettings = () => {
           `/risk-settings/update-active-status`,
           data
         );
+        console.log("resp is sisisi ", res );
         return res.data;
       } catch (error) {
         errorHandler(error);
-        throw error;
+        return null;
       }
     },
     onSuccess: () => {
@@ -397,7 +398,7 @@ export const useCreateTrade = () => {
         return response.data;
       } catch (error) {
         errorHandler(error);
-        throw error;
+        return null;
       }
     },
     onSuccess: (_, variables) => {
@@ -449,7 +450,7 @@ export const useCreateTradingCredentials = () => {
         return response.data;
       } catch (error) {
         errorHandler(error);
-        throw error;
+        return null;
       }
     },
     onSuccess: (_, variables) => {
