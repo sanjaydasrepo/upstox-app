@@ -93,6 +93,7 @@ export interface Trade {
 export interface TradingAccount {
   id?: number;
   name: string;
+  displayBrokerName?:string;
   documentId?: string;
   account_type?: AccountType;
   account_status?: AccountStatus;
@@ -107,6 +108,8 @@ export interface TradingAccount {
   risk_setting?: RiskSetting;
 
   isLinkedWithBrokerAccount?: boolean
+
+  demo_account?: TradingAccount;
 }
 
 export interface TradingCredential {

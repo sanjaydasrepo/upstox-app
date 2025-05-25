@@ -10,6 +10,7 @@ import { Provider } from "./providers";
 import Account from "./components/account";
 import Navbar from "./components/NavBar";
 import RiskProfile from "./components/risk-profile";
+import { Toaster } from "./components/ui/toaster";
 
 type AuthToken = string | null;
 
@@ -28,6 +29,7 @@ const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
     <>
       <Navbar/>
       {children}
+      <Toaster />
     </>
   );
 };

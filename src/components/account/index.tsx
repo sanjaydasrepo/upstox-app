@@ -45,6 +45,8 @@ import {
 
 export interface AccountFormData {
   name: string;
+  displayBrokerName?: string;
+  broker: string;
   accountType: "zerodha" | "upstox";
   apiKey: string;
   secret: string;
@@ -62,17 +64,14 @@ export interface Payload {
 
 const Account: React.FC = () => {
   const { action } = useParams();
-  const location = useLocation();
   const form = useForm<AccountFormData>();
   const [loading, setLoading] = useState(false);
-  const [reeconnectAccount, setReconnectAccount] = useState();
 
   const { mutateAsync: createTradingAccount } = useCreateTradingAccount();
   const { data: tradingAccounts, isLoading: isTradingLoadingAcccount } =
     useTradingAccountsByUser();
 
-  const { data: user } = useUser();
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
 
   const saveAccountDetails = async (formData: AccountFormData) => {
     try {
@@ -93,7 +92,6 @@ const Account: React.FC = () => {
       return false;
     }
   };
-
 
   useEffect(() => {
     const apiKeyValidation = async (value: any) => {
@@ -133,6 +131,11 @@ const Account: React.FC = () => {
   const onSubmit = async (data: AccountFormData) => {
     setLoading(true);
     try {
+      const displayBrokerName =
+        tradingAccounts?.data && tradingAccounts?.data.length > 0
+          ? `${data.broker}-${tradingAccounts?.data.length}`
+          : `${data.broker}-1`;
+      data.displayBrokerName = displayBrokerName;
       const accResp = await saveAccountDetails(data);
 
       console.log(`console `, accResp);
@@ -174,7 +177,7 @@ const Account: React.FC = () => {
                 control={form.control}
                 rules={{ required: true }}
                 disabled={loading}
-                name="accountType"
+                name="broker"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Account Type</FormLabel>

@@ -20,7 +20,7 @@ interface BrokerOption {
 interface TradingAccountSelectProps {
   tradingAccounts: TradingAccount[];
   selectedBroker: string;
-  setSelectedBroker: (value: string) => void;
+  handleSetSelectedAccount: (value: string) => void;
   accountType: boolean;
   handleAccountChange: (checked: boolean) => void;
   handleAddNewAccount: () => void;
@@ -29,11 +29,14 @@ interface TradingAccountSelectProps {
 const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
   tradingAccounts,
   selectedBroker,
-  setSelectedBroker,
+  handleSetSelectedAccount,
   accountType,
   handleAccountChange,
   handleAddNewAccount,
 }) => {
+  const selectedAccount = tradingAccounts.find(
+    (acc) => acc.documentId === selectedBroker
+  );
   
   const generateNumberedBrokerOptions = (
     tradingAccounts: TradingAccount[]
@@ -72,12 +75,11 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
     (acc) => acc.documentId === selectedBroker
   );
 
-  // Get current balance based on account type
   const getCurrentBalance = (): number => {
-    const account = selectedBrokerAccounts.find(
-      (acc) => acc.account_type === (accountType ? "live" : "demo")
-    );
-    return account?.current_balance || 0;
+    const accountBal = accountType
+      ? selectedAccount?.current_balance
+      : selectedAccount?.demo_account?.current_balance;
+    return accountBal || 0;
   };
   const formatCurrency = (amount: number): string => {
     return new Intl.NumberFormat("en-IN", {
@@ -87,8 +89,9 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
     }).format(amount);
   };
 
-  console.log("asdadasdasd asdasd" , brokerOptions );
-  if( brokerOptions.length === 0 ){
+  console.log("asdadasdasd asdasd", selectedAccount);
+
+  if (!selectedAccount) {
     return null;
   }
   return (
@@ -121,26 +124,26 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
             </div>
           )}
         </div>
-        {brokerOptions?.length > 0 && (
+        {tradingAccounts?.length > 0 && (
           <Select
             value={selectedBroker}
             onValueChange={(value: string) => {
-              console.log("isisis ", value );
-              setSelectedBroker(value);
-              localStorage.setItem('default-broker', value);
+              console.log("isisis ", value);
+              handleSetSelectedAccount(value);
+              localStorage.setItem("default-selected-account", value);
             }}
           >
             <SelectTrigger className="text-gray-300 text-sm h-8 w-full border-0 bg-[#0A1623] ring-0 focus:ring-0 focus:ring-offset-0">
               <SelectValue placeholder="Select Trading Account" />
             </SelectTrigger>
             <SelectContent className="border-0 bg-[#0A1623] text-white">
-              {brokerOptions.map((broker) => (
+              {tradingAccounts.map((broker) => (
                 <SelectItem
-                  key={broker.value}
-                  value={broker.value || ""}
+                  key={broker.documentId}
+                  value={broker.documentId || ""}
                   className="hover:bg-[#1E293B] hover:text-white focus:bg-[#1E293B] focus:text-white"
                 >
-                  {broker.displayName}
+                  {broker.displayBrokerName}
                 </SelectItem>
               ))}
             </SelectContent>
