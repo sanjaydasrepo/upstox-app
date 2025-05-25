@@ -4,6 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import StrikePricesDisplay from './StrikePrices';
 
 interface Trade {
   price: number;
@@ -40,12 +41,7 @@ export default function TradingLayout() {
         <ResizablePanel defaultSize={50} className="p-4">
           <h2 className="text-xl font-bold mb-4">Trade here</h2>
           <div className="space-y-4">
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Input defaultValue="20000" className="w-32" />
-                <span className="px-2 py-1 bg-gray-200 rounded">GE</span>
-              </div>
-            ))}
+            <StrikePricesDisplay/>
           </div>
         </ResizablePanel>
         <ResizableHandle />

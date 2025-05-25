@@ -194,7 +194,7 @@ const Navbar: React.FC = () => {
                       </Select>
                     </div>
                   </div>
-
+                              
                   <TradingAccountSelect
                     tradingAccounts={tradingAccounts?.data || []}
                     selectedBroker={selectedAccount}

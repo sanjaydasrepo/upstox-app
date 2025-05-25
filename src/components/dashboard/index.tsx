@@ -11,7 +11,7 @@ import {
 } from "@/hooks/strapiHooks";
 import TradingLayout from "./widgets/TradingLayout";
 
-// const socket = io(BASE_URL ?? "localhost:3001");
+const socket = io(BASE_URL ?? "localhost:3001");
 
 const Dashboard: React.FC = () => {
   const navigate = useNavigate();

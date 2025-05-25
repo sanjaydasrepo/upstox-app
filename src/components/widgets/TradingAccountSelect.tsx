@@ -24,7 +24,7 @@ interface TradingAccountSelectProps {
   accountType: boolean;
   handleAccountChange: (checked: boolean) => void;
   handleAddNewAccount: () => void;
-}
+} 
 
 const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
   tradingAccounts,
@@ -34,6 +34,7 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
   handleAccountChange,
   handleAddNewAccount,
 }) => {
+  
   const generateNumberedBrokerOptions = (
     tradingAccounts: TradingAccount[]
   ): BrokerOption[] => {
@@ -65,6 +66,8 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
   const brokerOptions: BrokerOption[] =
     generateNumberedBrokerOptions(tradingAccounts);
 
+    console.log("Trading accounts ", brokerOptions  );
+  
   const selectedBrokerAccounts = tradingAccounts.filter(
     (acc) => acc.documentId === selectedBroker
   );
