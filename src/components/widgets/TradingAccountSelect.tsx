@@ -37,6 +37,13 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
   const selectedAccount = tradingAccounts.find(
     (acc) => acc.documentId === selectedBroker
   );
+
+  console.log("TradingAccountSelect: Props received", {
+    selectedBroker,
+    tradingAccountsLength: tradingAccounts.length,
+    selectedAccount,
+    accountType
+  });
   
   const generateNumberedBrokerOptions = (
     tradingAccounts: TradingAccount[]
@@ -89,9 +96,10 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
     }).format(amount);
   };
 
-  console.log("asdadasdasd asdasd", selectedAccount);
+  console.log("TradingAccountSelect: selectedAccount check", selectedAccount);
 
   if (!selectedAccount) {
+    console.log("TradingAccountSelect: No selectedAccount found, returning null");
     return null;
   }
   return (

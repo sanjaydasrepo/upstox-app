@@ -11,6 +11,7 @@ import Account from "./components/account";
 import Navbar from "./components/NavBar";
 import RiskProfile from "./components/risk-profile";
 import { Toaster } from "./components/ui/toaster";
+import { useUpstoxAuth } from "./hooks/useUpstoxAuth";
 
 type AuthToken = string | null;
 
@@ -21,6 +22,9 @@ const useAuth = () => {
 
 const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
   const auth = useAuth();
+  
+  // Monitor Upstox authentication status
+  useUpstoxAuth();
   
   if (!auth) {
     return <Navigate to="/login" replace />;

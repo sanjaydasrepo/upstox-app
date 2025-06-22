@@ -61,21 +61,38 @@ const Navbar: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("NavBar: Trading accounts effect", { 
+      isTradingLoadingAcccount, 
+      tradingAccountsData: tradingAccounts?.data,
+      dataLength: tradingAccounts?.data?.length 
+    });
+    
     if (isTradingLoadingAcccount) return;
 
-    if (tradingAccounts?.data && tradingAccounts?.data?.length > 0) {
-      const selectedAccount = localStorage.getItem("default-selected-account");
+    if (tradingAccounts?.data && Array.isArray(tradingAccounts.data) && tradingAccounts.data.length > 0) {
+      const savedSelectedAccount = localStorage.getItem("default-selected-account");
+      console.log("NavBar: Saved selected account from localStorage:", savedSelectedAccount);
 
-      const activeAcc = tradingAccounts.data.find(
-        (ta) => ta.documentId === selectedAccount
+      let activeAcc = tradingAccounts.data.find(
+        (ta) => ta.documentId === savedSelectedAccount
       );
 
+      // If no saved account or saved account not found, select the first available account
+      if (!activeAcc && tradingAccounts.data.length > 0) {
+        activeAcc = tradingAccounts.data[0];
+        console.log("NavBar: No saved account found, selecting first available:", activeAcc);
+      }
+
       if (activeAcc && activeAcc.documentId) {
+        console.log("NavBar: Setting selected account:", activeAcc.documentId);
         setSelectedAccount(activeAcc.documentId);
         const isLiveActive =
           activeAcc.account_status === "active" ? true : false;
 
         setAccountType(isLiveActive);
+        
+        // Save the selected account to localStorage
+        localStorage.setItem("default-selected-account", activeAcc.documentId);
       }
     }
   }, [tradingAccounts, isTradingLoadingAcccount]);
@@ -143,12 +160,23 @@ const Navbar: React.FC = () => {
           </div>
 
           <div className="flex sm:hidden items-center gap-2">
-            {!isTradingLoadingAcccount &&
-              !isLoadingRiskProfiles &&
-              tradingAccounts &&
-              riskProfiles &&
-              tradingAccounts?.data?.length > 0 &&
-              riskProfiles?.data?.length > 0 && (
+            {(() => {
+              const conditions = {
+                tradingAccountsLoading: !isTradingLoadingAcccount,
+                riskProfilesLoading: !isLoadingRiskProfiles,
+                tradingAccountsExist: !!tradingAccounts,
+                riskProfilesExist: !!riskProfiles,
+                tradingAccountsHasData: !!(tradingAccounts?.data && Array.isArray(tradingAccounts.data) && tradingAccounts.data.length > 0),
+                riskProfilesHasData: !!(riskProfiles?.data && Array.isArray(riskProfiles.data) && riskProfiles.data.length > 0)
+              };
+              
+              console.log("NavBar: Render conditions check", conditions);
+              
+              const shouldRender = Object.values(conditions).every(Boolean);
+              console.log("NavBar: Should render trading accounts section:", shouldRender);
+              
+              return shouldRender;
+            })() && (
                 <div className="flex gap-2 items-center">
                   <div className="flex bg-[#0A1623] px-4 rounded-lg items-center min-w-[150px] min-h-[70px]">
                     <Button
@@ -224,8 +252,8 @@ const Navbar: React.FC = () => {
                 !isLoadingRiskProfiles &&
                 tradingAccounts &&
                 riskProfiles &&
-                tradingAccounts?.data?.length > 0 &&
-                riskProfiles?.data?.length > 0 && (
+                tradingAccounts?.data && Array.isArray(tradingAccounts.data) && tradingAccounts.data.length > 0 &&
+                riskProfiles?.data && Array.isArray(riskProfiles.data) && riskProfiles.data.length > 0 && (
                   <div className="flex flex-col gap-4">
                     <div className="bg-[#0A1623] p-4 rounded-lg flex items-center px-8">
                       <div className="flex items-center justify-between mb-2">

@@ -72,6 +72,17 @@ export const useApiErrorHandler = () => {
 
     // Handle authentication errors
     if (strapiError.error.status === 401) {
+      // Check if this is specifically an Upstox token error
+      if (strapiError.error.message?.includes('UPSTOX_TOKEN_EXPIRED') ||
+          strapiError.error.details?.error === 'TOKEN_EXPIRED') {
+        toast({
+          title: "Upstox Token Expired",
+          description: "Your Upstox session has expired. Please re-authenticate to continue trading.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Authentication Error",
         description: "Your session has expired. Please log in again.",
@@ -86,6 +97,17 @@ export const useApiErrorHandler = () => {
 
     // Handle forbidden errors
     if (strapiError.error.status === 403) {
+      // Check if this is specifically an Upstox token error
+      if (strapiError.error.message?.includes('UPSTOX_TOKEN_EXPIRED') ||
+          strapiError.error.details?.error === 'TOKEN_EXPIRED') {
+        toast({
+          title: "Upstox Token Expired",
+          description: "Your Upstox session has expired. Please re-authenticate to continue trading.",
+          variant: "destructive",
+        });
+        return;
+      }
+      
       toast({
         title: "Permission Denied",
         description: "You don't have permission to perform this action.",
