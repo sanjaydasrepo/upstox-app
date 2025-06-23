@@ -41,8 +41,8 @@ class UpstoxAuthService {
       return this.constructManualUpstoxUrl();
     }
     try {
-      console.log('🔍 Requesting reauth from:', `${this.baseUrl}/auth/reauth`);
-      const response = await axios.post(`${this.baseUrl}/auth/reauth`, {}, {
+      console.log('🔍 Requesting reauth from NestJS:', `${this.baseUrl}/auth/reauth`);
+      const response = await axios.get(`${this.baseUrl}/auth/reauth`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`
         }
@@ -61,49 +61,9 @@ class UpstoxAuthService {
       console.error('Reauth request failed:', error);
       console.error('Error response:', error.response?.data);
       
-      // Check if reauth specifically failed due to integration issues
-      if (error.response?.data?.message?.includes('Integration failed') || 
-          error.response?.data?.code === 'INTEGRATION_FAILED') {
-        console.log('🔄 Reauth failed due to integration issue, trying direct auth...');
-      }
-      
-      // Fallback: try to get auth URL directly using the original endpoint
-      try {
-        console.log('🔍 Trying fallback auth from:', `${this.baseUrl}/auth/upstox`);
-        const response = await axios.post(`${this.baseUrl}/auth/upstox`, {}, {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
-        });
-        console.log('🔍 Fallback auth response full:', response);
-        console.log('🔍 Fallback auth response data:', response.data);
-        console.log('🔍 Fallback auth response status:', response.status);
-        console.log('🔍 Fallback URL:', response.data?.url);
-        console.log('🔍 Fallback URL type:', typeof response.data?.url);
-        
-        // Check if response has an error object (like the trading account toggle)
-        if (response.data?.error) {
-          console.error('❌ Fallback response contains error:', response.data.error);
-          throw new Error(`Fallback auth failed: ${response.data.error.message || 'Unknown error'}`);
-        }
-        
-        if (!response.data?.url || typeof response.data.url !== 'string') {
-          console.error('❌ Invalid URL in fallback response:', response.data);
-          console.log('🔍 Full response structure:', JSON.stringify(response.data, null, 2));
-          throw new Error('Invalid URL received from fallback auth endpoint');
-        }
-        
-        return {
-          url: response.data.url,
-          message: 'Please complete the authentication process (via fallback)'
-        };
-      } catch (fallbackError: any) {
-        console.error('Fallback auth request also failed:', fallbackError);
-        console.error('Fallback error response:', fallbackError.response?.data);
-        
-        // If both endpoints fail, use manual URL construction
-        return this.constructManualUpstoxUrl();
-      }
+      // Fallback: use manual URL construction since NestJS is simpler
+      console.log('🔄 Fallback to manual URL construction...');
+      return this.constructManualUpstoxUrl();
     }
   }
 

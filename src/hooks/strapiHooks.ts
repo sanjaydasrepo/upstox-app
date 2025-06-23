@@ -208,9 +208,9 @@ export const useTradingAccountsByUser = () => {
     queryKey: ["trading-accounts"],
     queryFn: async () => {
       try {
-        console.log('🔍 Fetching trading accounts...');
+        console.log('🔍 Fetching trading accounts from NestJS...');
         const response = await axiosInstance.get(
-          `/trading-accounts?filters[account_type]=live&filters[isLinkedWithBrokerAccount]=true&populate=demo_account`
+          `http://localhost:3005/trading-accounts`
         );
         console.log('✅ Trading accounts response:', response.data);
         
@@ -238,7 +238,19 @@ export const useTradingAccountsByUser = () => {
           throw error;
         }
         
-        return response.data;
+        // Transform NestJS response to match Strapi format for compatibility
+        const accounts = Array.isArray(response.data) ? response.data : [response.data];
+        return {
+          data: accounts.filter(account => account.accountType === 'live' && account.isLinked),
+          meta: {
+            pagination: {
+              page: 1,
+              pageSize: accounts.length,
+              pageCount: 1,
+              total: accounts.length
+            }
+          }
+        };
       } catch (error) {
         console.error('❌ Trading accounts fetch error:', error);
         errorHandler(error);
@@ -278,8 +290,8 @@ export const useCreateTradingAccount = () => {
     mutationFn: async (data: Payload) => {
       try {
         const response = await axiosInstance.post(
-          `/trading-accounts/create-trading-accounts`,
-          { data }
+          `http://localhost:3005/trading-accounts`,
+          data
         );
         return response.data;
       } catch (error) {
@@ -301,9 +313,8 @@ export const useUpdateTradingAccount = () => {
     mutationFn: async (data: Partial<TradingAccount>) => {
       try {
         console.log('🔍 Trading Account Update - Request:', data);
-        const res = await axiosInstance.post(
-          `/trading-accounts/toggle-active-status`,
-          data
+        const res = await axiosInstance.put(
+          `http://localhost:3005/trading-accounts/${data.documentId}/toggle-active-status`
         );
         console.log('✅ Trading Account Update - Response:', res.data);
         
