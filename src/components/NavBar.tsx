@@ -46,11 +46,37 @@ const Navbar: React.FC = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
   };
 
-  const handleAccountChange = (value:boolean) => {
+  const handleAccountChange = (value: boolean) => {
+    console.log('🔍 NavBar: Starting account change to:', value, 'for account:', selectedAccount);
+    
     updateAccount({
       documentId: selectedAccount
-    }).then(( resp ) => {
-      setAccountType(value);
+    }).then((resp) => {
+      console.log('✅ NavBar: Account change response:', resp);
+      if (resp) {
+        setAccountType(value);
+        console.log('✅ NavBar: Account type updated to:', value);
+      } else {
+        console.log('⚠️ NavBar: Account change returned null/undefined');
+      }
+    }).catch((error) => {
+      console.error('❌ NavBar: Account switch failed:', error);
+      console.error('❌ NavBar: Error details:', {
+        message: error.message,
+        response: error.response,
+        data: error.response?.data
+      });
+      
+      // Check for token expiry here as well
+      const errorData = error.response?.data;
+      if (errorData && (
+        errorData.includes?.('Access token has expired') ||
+        errorData.includes?.('RECONNECT_REQUIRED') ||
+        JSON.stringify(errorData).includes('Access token has expired')
+      )) {
+        console.log('🚨 NavBar: Token expiry detected, should redirect');
+        alert('Token expired detected in NavBar! Check console for details.');
+      }
     });
   };
 
@@ -134,7 +160,12 @@ const Navbar: React.FC = () => {
     const activeAccount =
       liveAccount?.account_status === "active" ? true : false;
     setAccountType(activeAccount);
-    refetchTdAccounts();
+    
+    // Refetch accounts and handle potential token expiry
+    refetchTdAccounts().catch((error) => {
+      console.error('Failed to refetch trading accounts:', error);
+      // Error will be handled by global error handler
+    });
   };
 
   return (

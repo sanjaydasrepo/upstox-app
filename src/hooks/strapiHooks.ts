@@ -68,18 +68,48 @@ export const useApiErrorHandler = () => {
   const navigate = useNavigate();
 
   return (error: unknown) => {
+    console.log('🔍 API Error Handler - Processing error:', error);
     const strapiError = handleApiError(error);
+    console.log('🔍 Processed strapi error:', strapiError);
 
     // Handle authentication errors
     if (strapiError.error.status === 401) {
+      console.log('🔍 401 Error - Checking for Upstox token error:', {
+        message: strapiError.error.message,
+        details: strapiError.error.details,
+        hasExpiredInMessage: strapiError.error.message?.includes('Access token has expired'),
+        hasReconnectRequired: strapiError.error.details?.action === 'RECONNECT_REQUIRED'
+      });
+
       // Check if this is specifically an Upstox token error
       if (strapiError.error.message?.includes('UPSTOX_TOKEN_EXPIRED') ||
-          strapiError.error.details?.error === 'TOKEN_EXPIRED') {
+          strapiError.error.message?.includes('Access token has expired') ||
+          strapiError.error.details?.error === 'TOKEN_EXPIRED' ||
+          strapiError.error.details?.action === 'RECONNECT_REQUIRED') {
+        
+        // Show toast and automatically initiate reauth
         toast({
           title: "Upstox Token Expired",
-          description: "Your Upstox session has expired. Please re-authenticate to continue trading.",
+          description: "Your Upstox session has expired. Redirecting to re-authenticate...",
           variant: "destructive",
         });
+        
+        // Automatically initiate reauth flow
+        setTimeout(async () => {
+          try {
+            const { upstoxAuthService } = await import('@/services/upstoxAuthService');
+            const reauthResponse = await upstoxAuthService.requestReauth();
+            upstoxAuthService.redirectToUpstoxAuth(reauthResponse.url);
+          } catch (error) {
+            console.error('Failed to initiate automatic reauth:', error);
+            toast({
+              title: "Re-authentication Required",
+              description: "Please refresh the page and try again.",
+              variant: "destructive",
+            });
+          }
+        }, 2000); // 2 second delay to show the toast message
+        
         return;
       }
       
@@ -99,12 +129,33 @@ export const useApiErrorHandler = () => {
     if (strapiError.error.status === 403) {
       // Check if this is specifically an Upstox token error
       if (strapiError.error.message?.includes('UPSTOX_TOKEN_EXPIRED') ||
-          strapiError.error.details?.error === 'TOKEN_EXPIRED') {
+          strapiError.error.message?.includes('Access token has expired') ||
+          strapiError.error.details?.error === 'TOKEN_EXPIRED' ||
+          strapiError.error.details?.action === 'RECONNECT_REQUIRED') {
+        
+        // Show toast and automatically initiate reauth
         toast({
           title: "Upstox Token Expired",
-          description: "Your Upstox session has expired. Please re-authenticate to continue trading.",
+          description: "Your Upstox session has expired. Redirecting to re-authenticate...",
           variant: "destructive",
         });
+        
+        // Automatically initiate reauth flow
+        setTimeout(async () => {
+          try {
+            const { upstoxAuthService } = await import('@/services/upstoxAuthService');
+            const reauthResponse = await upstoxAuthService.requestReauth();
+            upstoxAuthService.redirectToUpstoxAuth(reauthResponse.url);
+          } catch (error) {
+            console.error('Failed to initiate automatic reauth:', error);
+            toast({
+              title: "Re-authentication Required",
+              description: "Please refresh the page and try again.",
+              variant: "destructive",
+            });
+          }
+        }, 2000); // 2 second delay to show the toast message
+        
         return;
       }
       
@@ -157,11 +208,39 @@ export const useTradingAccountsByUser = () => {
     queryKey: ["trading-accounts"],
     queryFn: async () => {
       try {
+        console.log('🔍 Fetching trading accounts...');
         const response = await axiosInstance.get(
           `/trading-accounts?filters[account_type]=live&filters[isLinkedWithBrokerAccount]=true&populate=demo_account`
         );
+        console.log('✅ Trading accounts response:', response.data);
+        
+        // Check if response contains error object (200 status but error inside)
+        if (response.data?.error) {
+          console.log('❌ Trading accounts response contains error:', response.data.error);
+          
+          const errorData = response.data.error;
+          const isUpstoxTokenError = (
+            errorData?.name === 'TokenExpired' ||
+            errorData?.details?.action === 'RECONNECT_REQUIRED' ||
+            errorData?.details?.action === 'REAUTH_REQUIRED' ||
+            errorData?.message?.includes('Access token has expired')
+          );
+          
+          if (isUpstoxTokenError) {
+            console.log('🚨 UPSTOX TOKEN ERROR IN TRADING ACCOUNTS FETCH!');
+            // Don't auto-redirect here since this is just a data fetch
+            // Let the user trigger the redirect via the account switch
+          }
+          
+          // Throw error so the query is treated as failed
+          const error = new Error(errorData.message || 'Failed to fetch trading accounts');
+          (error as any).response = { status: errorData.status, data: response.data };
+          throw error;
+        }
+        
         return response.data;
       } catch (error) {
+        console.error('❌ Trading accounts fetch error:', error);
         errorHandler(error);
         throw error;
       }
@@ -221,13 +300,129 @@ export const useUpdateTradingAccount = () => {
   return useMutation({
     mutationFn: async (data: Partial<TradingAccount>) => {
       try {
+        console.log('🔍 Trading Account Update - Request:', data);
         const res = await axiosInstance.post(
           `/trading-accounts/toggle-active-status`,
           data
         );
+        console.log('✅ Trading Account Update - Response:', res.data);
+        
+        // Check if the response contains an error object (200 status but error inside)
+        if (res.data?.error) {
+          console.log('❌ Response contains error object:', res.data.error);
+          
+          const errorData = res.data.error;
+          const isUpstoxTokenError = (
+            errorData?.name === 'TokenExpired' ||
+            errorData?.details?.action === 'RECONNECT_REQUIRED' ||
+            errorData?.details?.action === 'REAUTH_REQUIRED' ||
+            errorData?.message?.includes('Access token has expired')
+          );
+          
+          if (isUpstoxTokenError) {
+            console.log('🚨 UPSTOX TOKEN ERROR DETECTED IN RESPONSE DATA!');
+            
+            const shouldRedirect = window.confirm('Your Upstox session has expired. You will be redirected to re-authenticate.');
+            
+            if (shouldRedirect) {
+              try {
+                const { upstoxAuthService } = await import('@/services/upstoxAuthService');
+                const reauthResponse = await upstoxAuthService.requestReauth();
+                upstoxAuthService.redirectToUpstoxAuth(reauthResponse.url);
+              } catch (reauthError) {
+                console.error('Failed to initiate reauth from mutation:', reauthError);
+                alert('Failed to initiate re-authentication. Please refresh the page.');
+              }
+            }
+            
+            // Throw an error so the mutation is treated as failed
+            const error = new Error(errorData.message || 'Token expired');
+            (error as any).response = { status: errorData.status, data: res.data };
+            throw error;
+          } else {
+            // Other error in response, throw it
+            const error = new Error(errorData.message || 'Unknown error');
+            (error as any).response = { status: errorData.status, data: res.data };
+            throw error;
+          }
+        }
+        
         return res.data;
-      } catch (error) {
-       
+      } catch (error: any) {
+        console.log('❌ Trading Account Update - Error CAUGHT:', error);
+        console.log('❌ Error response:', error.response);
+        console.log('❌ Error data:', error.response?.data);
+        console.log('❌ Error status:', error.response?.status);
+        
+        // Check for Upstox token errors specifically
+        const errorData = error.response?.data;
+        const errorMessage = error.message || errorData?.message || '';
+        
+        const isUpstoxTokenError = (
+          errorData?.action === 'RECONNECT_REQUIRED' ||
+          errorData?.action === 'REAUTH_REQUIRED' ||
+          errorData?.error === 'TOKEN_EXPIRED' ||
+          errorMessage.includes('Access token has expired') ||
+          errorMessage.includes('RECONNECT_REQUIRED') ||
+          JSON.stringify(errorData).includes('Access token has expired') ||
+          JSON.stringify(errorData).includes('RECONNECT_REQUIRED')
+        );
+        
+        console.log('🔍 Is this an Upstox token error?', isUpstoxTokenError);
+        
+        if (isUpstoxTokenError) {
+          console.log('🚨 UPSTOX TOKEN ERROR DETECTED IN MUTATION!');
+          
+          const shouldRedirect = window.confirm('Your Upstox session has expired. Do you want to re-authenticate now?');
+          
+          if (shouldRedirect) {
+            try {
+              const { upstoxAuthService } = await import('@/services/upstoxAuthService');
+              // Try manual URL construction first since backend has validation issues
+              const reauthResponse = await upstoxAuthService.requestReauth(true);
+              console.log('🔍 Mutation: Got reauth response:', reauthResponse);
+              
+              // Extract URL safely
+              let authUrl: string;
+              if (typeof reauthResponse === 'string') {
+                authUrl = reauthResponse;
+              } else if (reauthResponse && typeof reauthResponse === 'object') {
+                authUrl = reauthResponse.url || '';
+                if (!authUrl && 'authUrl' in reauthResponse) {
+                  authUrl = (reauthResponse as any).authUrl;
+                }
+                if (!authUrl) {
+                  console.error('No valid URL found in response:', reauthResponse);
+                  authUrl = JSON.stringify(reauthResponse);
+                }
+              } else {
+                authUrl = String(reauthResponse);
+              }
+              
+              console.log('🔍 Mutation: Extracted URL:', authUrl);
+              upstoxAuthService.redirectToUpstoxAuth(authUrl);
+            } catch (reauthError) {
+              console.error('Failed to initiate reauth from mutation:', reauthError);
+              
+              // Provide manual fallback option
+              const manualRedirect = window.confirm(
+                'Automatic re-authentication failed. Would you like to go to the account setup page to manually re-authenticate?'
+              );
+              
+              if (manualRedirect) {
+                window.location.href = '/account/new';
+              } else {
+                alert('Please refresh the page and try again, or go to Account settings to re-authenticate manually.');
+              }
+            }
+          }
+          
+          // Still call the error handler for other processing
+          errorHandler(error);
+          throw error; // Re-throw to let the caller know it failed
+        }
+        
+        // For non-token errors, handle normally
         errorHandler(error);
         return null;
       }
