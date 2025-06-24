@@ -1,17 +1,20 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
 export const BASE_URL = process.env.REACT_APP_BASE_URL;
-export const ST_BASE_URL = process.env.REACT_APP_ST_BASE_URL;
 
 const axiosInstance: AxiosInstance = axios.create({
-  baseURL: ST_BASE_URL,
+  baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
 axiosInstance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  // Try Firebase token first, fallback to legacy token
+  const firebaseToken = localStorage.getItem('firebaseToken');
+  const legacyToken = localStorage.getItem('token');
+  const token = firebaseToken || legacyToken;
+  
   if (token) {
     config.headers['Authorization'] = `Bearer ${token}`;
   }

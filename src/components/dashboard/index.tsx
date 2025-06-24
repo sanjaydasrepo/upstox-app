@@ -27,24 +27,51 @@ const Dashboard: React.FC = () => {
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
   useRiskSettingsByUser(user?.documentId ?? "");
   
+  console.log('🔍 Dashboard: Current state:', {
+    user: !!user,
+    tradingAccountsLoading: isLoading,
+    tradingAccountsCount: tradingAccounts?.data?.length || 0,
+    tradingAccountsData: tradingAccounts?.data,
+    riskProfilesLoading: isLoadingRiskProfiles,
+    riskProfilesCount: riskProfiles?.data?.length || 0,
+    riskProfilesData: riskProfiles?.data
+  });
+  
   useEffect(() => {
+    console.log('🔍 Dashboard: Checking trading accounts redirect...', {
+      isLoading,
+      hasAccounts: tradingAccounts?.data?.length || 0,
+      shouldRedirect: !isLoading && tradingAccounts && tradingAccounts?.data?.length === 0
+    });
+    
     if (
       !isLoading && tradingAccounts && tradingAccounts?.data?.length === 0 ){
+      console.log('🚀 Dashboard: Redirecting to /account/new (no trading accounts)');
       navigate("/account/new", { replace: true });
     }
   }, [tradingAccounts, isLoading, navigate]);
 
   useEffect(() => {
-    if (
-      !isLoadingRiskProfiles &&
-      !isLoading &&
-      tradingAccounts &&
-      tradingAccounts?.data?.length > 0 &&
-      riskProfiles && riskProfiles?.data?.length ===0 
-    ) {
+    const hasAccounts = tradingAccounts?.data && tradingAccounts.data.length > 0;
+    const hasRiskProfiles = riskProfiles?.data && riskProfiles.data.length > 0;
+    const riskProfilesEmpty = riskProfiles !== undefined && riskProfiles?.data && riskProfiles.data.length === 0;
+    const shouldRedirect = !isLoadingRiskProfiles && !isLoading && hasAccounts && (riskProfilesEmpty || riskProfiles === undefined);
+    
+    console.log('🔍 Dashboard: Checking risk profile redirect...', {
+      isLoadingRiskProfiles,
+      isLoading,
+      hasAccounts,
+      hasRiskProfiles,
+      riskProfilesEmpty,
+      riskProfilesUndefined: riskProfiles === undefined,
+      shouldRedirect
+    });
+    
+    if (shouldRedirect) {
+      console.log('🚀 Dashboard: Redirecting to /risk-profile/new (no risk profiles)');
       navigate("/risk-profile/new", { replace: true });
     }
-  }, [riskProfiles, tradingAccounts, isLoadingRiskProfiles, navigate]);
+  }, [riskProfiles, tradingAccounts, isLoadingRiskProfiles, isLoading, navigate]);
 
   return <TradingLayout/>
 };

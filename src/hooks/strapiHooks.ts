@@ -1,4 +1,5 @@
-import { AccountFormData, Payload } from "@/components/account";
+import React from "react";
+import { AccountFormData, Payload } from "@/components/account/index";
 import {
   Portfolio,
   RiskSetting,
@@ -184,9 +185,13 @@ export const useUser = () => {
     queryKey: ["user"],
     queryFn: async () => {
       try {
-        const resp = await axiosInstance.get<User>(`/users/me`);
-        return resp.data;
+        console.log('🔍 Fetching user data...');
+        const resp = await axiosInstance.get(`http://localhost:3005/auth/me`);
+        console.log('✅ User data response:', resp.data);
+        // Backend returns { success: true, data: {...}, message: "..." }
+        return resp.data.data;
       } catch (error) {
+        console.error('❌ User fetch error:', error);
         errorHandler(error);
         throw error;
       }
@@ -204,7 +209,7 @@ export const useUser = () => {
 export const useTradingAccountsByUser = () => {
   const errorHandler = useApiErrorHandler();
 
-  return useQuery<StrapiArrayResponse<TradingAccount>>({
+  const queryResult = useQuery<StrapiArrayResponse<TradingAccount>>({
     queryKey: ["trading-accounts"],
     queryFn: async () => {
       try {
@@ -240,14 +245,158 @@ export const useTradingAccountsByUser = () => {
         
         // Transform NestJS response to match Strapi format for compatibility
         const accounts = Array.isArray(response.data) ? response.data : [response.data];
+        
+        console.log('🔍 Raw accounts from API:', accounts);
+        
+        // Enhanced logging for each account to debug linking status
+        accounts.forEach((account, index) => {
+          console.log(`🔍 Account ${index + 1} analysis:`, {
+            id: account.id,
+            name: account.name || account.displayBrokerName,
+            accountType: account.accountType,
+            isLinked: account.isLinked,
+            tokenStatus: account.tokenStatus,
+            requiresReconnection: account.requiresReconnection,
+            broker: account.broker,
+            needsAuth: account.accountType === 'live' && !account.isLinked,
+            hasExpiredToken: account.requiresReconnection && account.tokenStatus === 'expired'
+          });
+        });
+        
+        // Check for accounts that need broker authentication
+        const accountsNeedingAuth = accounts.filter(account => {
+          const isLiveAccount = account.accountType === 'live';
+          const isUnlinked = !account.isLinked;
+          const hasMissingToken = account.tokenStatus === 'missing';
+          const hasExpiredToken = account.tokenStatus === 'expired';
+          
+          const needsAuth = isLiveAccount && (isUnlinked || hasMissingToken || hasExpiredToken);
+          
+          if (needsAuth) {
+            console.log(`🎯 Found account needing auth: ${account.id} (${account.broker})`, {
+              isLiveAccount,
+              isUnlinked,
+              isLinked: account.isLinked,
+              tokenStatus: account.tokenStatus,
+              hasMissingToken,
+              hasExpiredToken,
+              requiresReconnection: account.requiresReconnection
+            });
+          }
+          
+          return needsAuth;
+        });
+        
+        console.log('📊 Authentication Summary:', {
+          totalAccounts: accounts.length,
+          accountsNeedingAuth: accountsNeedingAuth.length,
+          accountsNeedingAuthIds: accountsNeedingAuth.map(acc => acc.id),
+          accountsWithDetails: accounts.map(acc => ({
+            id: acc.id,
+            isLinked: acc.isLinked,
+            tokenStatus: acc.tokenStatus,
+            accountType: acc.accountType,
+            needsAuth: acc.accountType === 'live' && (!acc.isLinked || acc.tokenStatus === 'missing' || acc.tokenStatus === 'expired')
+          }))
+        });
+
+        // Store accounts needing auth for later processing outside the query
+        console.log('🔍 Total accounts needing auth:', accountsNeedingAuth.length);
+        if (accountsNeedingAuth.length > 0) {
+          console.log('🚨 Found accounts needing broker authentication:', accountsNeedingAuth);
+          
+          // Store the first account that needs auth in sessionStorage for processing outside query
+          const firstAccount = accountsNeedingAuth[0];
+          const pendingAuth = {
+            id: firstAccount.id,
+            broker: firstAccount.broker || 'upstox'
+          };
+          console.log('💾 Storing pending auth in sessionStorage:', pendingAuth);
+          sessionStorage.setItem('pendingAuthAccount', JSON.stringify(pendingAuth));
+        } else {
+          console.log('✅ No accounts need authentication, clearing any pending auth');
+          // Clear any pending auth if no accounts need authentication
+          sessionStorage.removeItem('pendingAuthAccount');
+        }
+        
+        // Transform NestJS response data to match expected Strapi format for compatibility
+        const transformedAccounts = accounts.map(account => ({
+          ...account,
+          // Map NestJS/Prisma field names to Strapi field names for compatibility
+          account_type: account.accountType,
+          account_status: account.accountStatus,
+          isLinkedWithBrokerAccount: account.isLinked,
+          current_balance: account.currentBalance,
+          initial_balance: account.initialBalance,
+          // Keep original fields as well for backward compatibility
+          documentId: account.id,
+          name: account.name || account.displayName || `${account.broker} Account`,
+        }));
+        
+        // Include both live and demo accounts, but group them by broker
+        // We need both types to support the demo/live toggle functionality
+        const allAccountsWithPairing = transformedAccounts.map(account => {
+          // Find the corresponding demo account for each live account (and vice versa)
+          const sameCredential = transformedAccounts.filter(acc => 
+            acc.credentialId === account.credentialId && acc.broker === account.broker
+          );
+          
+          const liveAccount = sameCredential.find(acc => acc.accountType === 'live');
+          const demoAccount = sameCredential.find(acc => acc.accountType === 'demo');
+          
+          console.log(`🔍 Account pairing for ${account.id}:`, {
+            current: {
+              id: account.id,
+              type: account.accountType,
+              balance: account.currentBalance
+            },
+            liveAccount: liveAccount ? {
+              id: liveAccount.id,
+              balance: liveAccount.currentBalance
+            } : null,
+            demoAccount: demoAccount ? {
+              id: demoAccount.id,
+              balance: demoAccount.currentBalance
+            } : null
+          });
+          
+          return {
+            ...account,
+            // Add references to paired accounts for balance lookup
+            pairedLiveAccount: liveAccount,
+            pairedDemoAccount: demoAccount,
+          };
+        });
+        
+        // Filter to only show live accounts in the dropdown (but keep demo account data for balance lookup)
+        const filteredAccounts = allAccountsWithPairing.filter(account => {
+          const isLive = account.accountType === 'live';
+          
+          console.log(`🔍 Account ${account.id} filter result:`, {
+            name: account.name,
+            accountType: account.accountType,
+            account_type: account.account_type,
+            isLinked: account.isLinked,
+            isLinkedWithBrokerAccount: account.isLinkedWithBrokerAccount,
+            accountStatus: account.accountStatus,
+            account_status: account.account_status,
+            passesFilter: isLive,
+            demoBalance: account.pairedDemoAccount?.currentBalance
+          });
+          
+          return isLive;
+        });
+        
+        console.log(`🔍 Total accounts: ${accounts.length}, Filtered live accounts: ${filteredAccounts.length}`);
+        
         return {
-          data: accounts.filter(account => account.accountType === 'live' && account.isLinked),
+          data: filteredAccounts,
           meta: {
             pagination: {
               page: 1,
-              pageSize: accounts.length,
+              pageSize: filteredAccounts.length,
               pageCount: 1,
-              total: accounts.length
+              total: filteredAccounts.length
             }
           }
         };
@@ -258,6 +407,81 @@ export const useTradingAccountsByUser = () => {
       }
     },
   });
+
+  // Handle authentication redirect outside of the query to avoid conflicts
+  React.useEffect(() => {
+    console.log('🔍 useEffect triggered - checking for pending auth...');
+    console.log('🔍 queryResult.data exists:', !!queryResult.data);
+    console.log('🔍 queryResult.isLoading:', queryResult.isLoading);
+    
+    // Direct check: if we have data and accounts need auth, redirect immediately
+    if (queryResult.data && !queryResult.isLoading) {
+      const accounts = queryResult.data.data || [];
+      console.log('🔍 Checking accounts directly in useEffect:', accounts.length);
+      
+      // Find accounts that need authentication
+      const accountsNeedingAuth = accounts.filter(account => {
+        const needsAuth = account.accountType === 'live' && 
+                         (!account.isLinked || account.tokenStatus === 'missing' || account.tokenStatus === 'expired');
+        
+        if (needsAuth) {
+          console.log(`🚨 useEffect: Found account needing auth: ${account.id}`, {
+            isLinked: account.isLinked,
+            tokenStatus: account.tokenStatus,
+            accountType: account.accountType
+          });
+        } else {
+          console.log(`✅ useEffect: Account ${account.id} is properly linked`, {
+            isLinked: account.isLinked,
+            tokenStatus: account.tokenStatus,
+            accountType: account.accountType
+          });
+        }
+        
+        return needsAuth;
+      });
+      
+      if (accountsNeedingAuth.length > 0) {
+        console.log('🚨 useEffect: Starting redirect process for unlinked accounts...');
+        
+        // Clear any existing flags to ensure fresh redirect
+        sessionStorage.removeItem('brokerAuthInProgress');
+        
+        const performRedirect = async () => {
+          try {
+            console.log('🚀 useEffect: Requesting broker authentication URL...');
+            const response = await axiosInstance.post(`http://localhost:3005/auth/upstox`);
+            
+            console.log('🔍 useEffect: Auth URL response:', response.data);
+            
+            if (response.data && response.data.url) {
+              console.log('✅ useEffect: Got broker auth URL, redirecting...');
+              console.log('🔗 useEffect: Redirect URL:', response.data.url);
+              
+              // Force immediate redirect
+              console.log('🚀 useEffect: Executing redirect...');
+              window.location.replace(response.data.url);
+              
+            } else {
+              console.error('❌ useEffect: No auth URL in response:', response.data);
+            }
+          } catch (error) {
+            console.error('❌ useEffect: Failed to get broker auth URL:', error);
+            if (error instanceof AxiosError) {
+              console.error('❌ useEffect: Error details:', error.response?.data);
+            }
+          }
+        };
+        
+        // Execute redirect immediately
+        performRedirect();
+      } else {
+        console.log('✅ useEffect: All accounts are properly linked, no redirect needed');
+      }
+    }
+  }, [queryResult.data, queryResult.isLoading]);
+
+  return queryResult;
 };
 
 export const useTradingAccount = (
@@ -522,19 +746,23 @@ export const useRiskSettings = (trading_account_ids: string[]) => {
   });
 };
 
-export const useRiskSettingsByUser = (userId: string) => {
+export const useRiskSettingsByUser = (userId?: string) => {
   const errorHandler = useApiErrorHandler();
+  const { data: user } = useUser();
 
   return useQuery<StrapiArrayResponse<RiskSetting>>({
-    queryKey: ["risk-settings-by-filter", userId],
-    enabled: !!userId,
+    queryKey: ["risk-settings-by-filter"],
+    enabled: !!user, // Enable based on user existence, not userId
     queryFn: async () => {
       try {
+        console.log('🔍 Fetching risk settings via Firebase auth...');
         const response = await axiosInstance.get(
-          `/risk-settings?sort=active:desc`
+          `http://localhost:3005/risk-settings?sort=active:desc`
         );
+        console.log('✅ Risk settings response:', response.data);
         return response.data;
       } catch (error) {
+        console.error('❌ Risk settings fetch error:', error);
         errorHandler(error);
         throw error;
       }
@@ -549,9 +777,12 @@ export const useCreateRiskSettings = () => {
   return useMutation({
     mutationFn: async (data: RiskSetting) => {
       try {
-        const response = await axiosInstance.post(`/risk-settings`, { data });
+        console.log('🔍 Creating risk settings:', data);
+        const response = await axiosInstance.post(`http://localhost:3005/risk-settings`, { data });
+        console.log('✅ Risk settings created:', response.data);
         return response.data;
       } catch (error) {
+        console.error('❌ Risk settings creation error:', error);
         errorHandler(error);
         return null;
       }
@@ -571,13 +802,15 @@ export const useUpdateRiskSettings = () => {
   return useMutation({
     mutationFn: async (data: Partial<RiskSetting>) => {
       try {
+        console.log('🔍 Updating risk settings:', data);
         const res = await axiosInstance.post(
-          `/risk-settings/update-active-status`,
+          `http://localhost:3005/risk-settings/update-active-status`,
           data
         );
-        console.log("resp is sisisi ", res );
+        console.log('✅ Risk settings updated:', res.data);
         return res.data;
       } catch (error) {
+        console.error('❌ Risk settings update error:', error);
         errorHandler(error);
         return null;
       }
@@ -665,29 +898,59 @@ export const useTradingCredentials = (
   });
 };
 
-export const useCreateTradingCredentials = () => {
+// useCreateTradingCredentials hook removed - credentials are now managed through trading accounts
+
+export const useRequestReconnection = () => {
   const errorHandler = useApiErrorHandler();
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (data: TradingCredential) => {
+    mutationFn: async (broker: string) => {
       try {
-        const response = await axiosInstance.post(`/trading-credentials`, {
-          data,
-        });
+        const response = await axiosInstance.post(
+          `http://localhost:3005/trading-accounts/reconnect/${broker}`
+        );
         return response.data;
       } catch (error) {
         errorHandler(error);
-        return null;
+        throw error;
       }
     },
-    onSuccess: (_, variables) => {
-      // If we have an accountId in the credentials, invalidate the related query
-      if ("trading_account" in variables && variables.trading_account) {
-        queryClient.invalidateQueries({
-          queryKey: ["trading-credentials", variables.trading_account],
-        });
+    onSuccess: (data) => {
+      if (data.success && data.redirectUrl) {
+        // Redirect to account setup for reconnection
+        window.location.href = data.redirectUrl;
       }
+      queryClient.invalidateQueries({ queryKey: ["trading-accounts"] });
     },
   });
 };
+
+// Helper function to clear authentication flags (useful for testing)
+export const clearAuthenticationFlags = () => {
+  sessionStorage.removeItem('brokerAuthInProgress');
+  sessionStorage.removeItem('pendingAuthAccount');
+  
+  // Clear all lastAuthRedirect flags
+  Object.keys(sessionStorage).forEach(key => {
+    if (key.startsWith('lastAuthRedirect_')) {
+      sessionStorage.removeItem(key);
+    }
+  });
+  
+  console.log('🧹 Cleared all authentication flags');
+};
+
+// Hook to force check for unlinked accounts
+export const useForceAccountCheck = () => {
+  const queryClient = useQueryClient();
+  
+  const forceCheck = () => {
+    clearAuthenticationFlags();
+    queryClient.invalidateQueries({ queryKey: ["trading-accounts"] });
+    console.log('🔄 Forced account check - cleared flags and invalidated cache');
+  };
+  
+  return { forceCheck };
+};
+

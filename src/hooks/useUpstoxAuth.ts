@@ -27,6 +27,10 @@ export const useUpstoxAuth = () => {
         variant: "default",
       });
       
+      // Clear the broker authentication flag
+      sessionStorage.removeItem('brokerAuthInProgress');
+      console.log('✅ Cleared broker auth flag after successful authentication');
+      
       // Remove the success parameter from URL
       const newUrl = window.location.pathname;
       window.history.replaceState({}, '', newUrl);

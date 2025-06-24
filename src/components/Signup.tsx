@@ -1,6 +1,5 @@
-import React from "react";
-import { FormEvent, useState } from "react";
-import { Eye, EyeOff, Loader2, Shield } from "lucide-react";
+import React, { useState } from "react";
+import { Eye, EyeOff, Loader2, CheckCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "./ui/button";
@@ -10,37 +9,35 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/
 import { Alert, AlertDescription } from "./ui/alert";
 import { useToast } from "../hooks/use-toast";
 
-interface SignInError {
+interface SignupError {
   message: string;
   code?: string;
 }
 
-export default function SignInForm() {
+export default function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [success, setSuccess] = useState(false);
 
-  const { login, loginWithGoogle, resetPassword, sendVerificationEmail } = useAuth();
+  const { signup, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
   const handleError = (error: any) => {
-    let errorMessage = "Failed to sign in";
+    let errorMessage = "Failed to create account";
 
     if (error.code) {
       switch (error.code) {
-        case "auth/user-not-found":
-        case "auth/wrong-password":
-        case "auth/invalid-credential":
-          errorMessage = "Invalid email or password";
+        case "auth/email-already-in-use":
+          errorMessage = "An account with this email already exists";
           break;
-        case "auth/user-disabled":
-          errorMessage = "This account has been disabled";
-          break;
-        case "auth/too-many-requests":
-          errorMessage = "Too many failed attempts. Please try again later";
+        case "auth/weak-password":
+          errorMessage = "Password is too weak. Please use at least 6 characters";
           break;
         case "auth/invalid-email":
           errorMessage = "Please enter a valid email address";
@@ -48,71 +45,74 @@ export default function SignInForm() {
         default:
           errorMessage = error.message || errorMessage;
       }
-    } else if (typeof error === 'string') {
-      errorMessage = error;
     }
 
     toast({
-      title: "Login Failed",
+      title: "Signup Failed",
       description: errorMessage,
       variant: "destructive",
     });
   };
 
-  const handleResendVerification = async () => {
-    setIsResendingVerification(true);
-    try {
-      await sendVerificationEmail();
-      toast({
-        title: "Success",
-        description: "Verification email sent successfully",
-      });
-    } catch (err: any) {
-      toast({
-        title: "Error",
-        description: err.message || "Failed to resend verification email",
-        variant: "destructive",
-      });
-    } finally {
-      setIsResendingVerification(false);
-    }
-  };
-
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
-    try {
-      await login(email, password);
+
+    // Validation
+    if (password !== confirmPassword) {
       toast({
-        title: "Welcome back!",
-        description: "Successfully signed in to your account.",
+        title: "Validation Error",
+        description: "Passwords do not match",
+        variant: "destructive",
       });
-      navigate('/');
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({
+        title: "Validation Error", 
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      await signup(email, password);
+      setSuccess(true);
+      toast({
+        title: "Account Created!",
+        description: "Please check your email to verify your account.",
+      });
+      setTimeout(() => {
+        navigate('/');
+      }, 2000);
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error("Signup error:", err);
       handleError(err);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleSignup = async () => {
     setIsLoading(true);
 
     try {
       await loginWithGoogle();
       toast({
         title: "Welcome!",
-        description: "Successfully signed in with Google.",
+        description: "Successfully signed up with Google.",
       });
       navigate('/');
     } catch (err: any) {
-      console.error("Google login error:", err);
+      console.error("Google signup error:", err);
       // Check if user cancelled the popup
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
         // User cancelled, don't show error toast
-        console.log("Google sign-in cancelled by user");
+        console.log("Google sign-up cancelled by user");
       } else {
         handleError(err);
       }
@@ -121,18 +121,48 @@ export default function SignInForm() {
     }
   };
 
+  if (success) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <Card className="w-full max-w-md mx-4">
+          <CardContent className="flex flex-col items-center space-y-4 pt-6">
+            <CheckCircle className="h-16 w-16 text-green-500" />
+            <CardTitle className="text-2xl font-bold text-center">Account Created!</CardTitle>
+            <CardDescription className="text-center">
+              Please check your email to verify your account.
+            </CardDescription>
+            <p className="text-sm text-muted-foreground text-center">
+              You will be redirected to the dashboard shortly...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen w-full bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
       <div className="flex w-full flex-col items-center justify-center px-4 md:w-[60%] md:px-14 lg:px-20">
         <Card className="w-full max-w-md">
           <CardHeader className="space-y-1">
-            <CardTitle className="text-3xl font-bold">Sign in</CardTitle>
+            <CardTitle className="text-3xl font-bold">Create Account</CardTitle>
             <CardDescription>
-              Welcome back! Please sign in to your account
+              Join us to start your trading journey
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  placeholder="Enter your full name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -147,20 +177,12 @@ export default function SignInForm() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    to="/auth/forgot-password"
-                    className="text-sm text-primary hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
+                <Label htmlFor="password">Password</Label>
                 <div className="relative">
                   <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
-                    placeholder="Enter your password"
+                    placeholder="Create a password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     disabled={isLoading}
@@ -180,13 +202,39 @@ export default function SignInForm() {
                 </div>
               </div>
 
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">Confirm Password</Label>
+                <div className="relative">
+                  <Input
+                    id="confirmPassword"
+                    type={showConfirmPassword ? "text" : "password"}
+                    placeholder="Confirm your password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    disabled={isLoading}
+                    required
+                    className="pr-10"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="absolute right-0 top-0 h-full w-10 px-0 hover:bg-transparent"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    disabled={isLoading}
+                  >
+                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </div>
+
               <Button
                 type="submit"
                 disabled={isLoading}
                 className="w-full"
               >
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? "Creating Account..." : "Create Account"}
               </Button>
 
               <div className="relative">
@@ -203,7 +251,7 @@ export default function SignInForm() {
               <Button
                 type="button"
                 variant="outline"
-                onClick={handleGoogleSignIn}
+                onClick={handleGoogleSignup}
                 disabled={isLoading}
                 className="w-full"
               >
@@ -225,17 +273,17 @@ export default function SignInForm() {
                     d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
                   />
                 </svg>
-                Sign in with Google
+                Sign up with Google
               </Button>
             </form>
 
             <div className="mt-4 text-center text-sm">
-              Don&apos;t have an account?{" "}
+              Already have an account?{" "}
               <Link
-                to="/auth/signup"
+                to="/auth/login"
                 className="text-primary underline-offset-4 hover:underline"
               >
-                Sign up
+                Sign in
               </Link>
             </div>
           </CardContent>
@@ -243,31 +291,30 @@ export default function SignInForm() {
       </div>
 
       {/* Right Section */}
-      <div className="hidden md:flex md:w-[40%] items-center justify-center bg-gradient-to-br from-blue-600 to-purple-600 relative overflow-hidden">
+      <div className="hidden md:flex md:w-[40%] items-center justify-center bg-gradient-to-br from-purple-600 to-blue-600 relative overflow-hidden">
         <div className="text-center text-white p-8">
-          <Shield className="h-16 w-16 mx-auto mb-6 text-white/90" />
-          <h1 className="text-4xl font-bold mb-4">Hello, Friend!</h1>
+          <h1 className="text-4xl font-bold mb-4">Welcome!</h1>
           <p className="text-lg text-white/90 mb-8">
-            To keep connected with us please login with your personal info.
+            Create your account and start your trading journey with us.
           </p>
           <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
-            <h2 className="text-xl font-semibold mb-4">Secure Trading Platform</h2>
+            <h2 className="text-xl font-semibold mb-4">Why Join Us?</h2>
             <div className="text-left space-y-3">
               <div className="flex items-center space-x-3">
-                <Shield className="h-5 w-5 text-blue-400" />
-                <span>Bank-level security</span>
+                <CheckCircle className="h-5 w-5 text-green-400" />
+                <span>Advanced trading algorithms</span>
               </div>
               <div className="flex items-center space-x-3">
-                <Shield className="h-5 w-5 text-blue-400" />
-                <span>Real-time data protection</span>
+                <CheckCircle className="h-5 w-5 text-green-400" />
+                <span>Real-time market analysis</span>
               </div>
               <div className="flex items-center space-x-3">
-                <Shield className="h-5 w-5 text-blue-400" />
-                <span>Encrypted transactions</span>
+                <CheckCircle className="h-5 w-5 text-green-400" />
+                <span>Comprehensive risk management</span>
               </div>
               <div className="flex items-center space-x-3">
-                <Shield className="h-5 w-5 text-blue-400" />
-                <span>24/7 monitoring</span>
+                <CheckCircle className="h-5 w-5 text-green-400" />
+                <span>Professional trading tools</span>
               </div>
             </div>
           </div>

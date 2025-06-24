@@ -1,6 +1,7 @@
 import React from "react";
 import { BrowserRouter, Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import Login from "./components/Login";
+import Signup from "./components/Signup";
 import Orders from "./components/Orders";
 import Reports from "./components/Reports";
 import Dashboard from "./components/dashboard";
@@ -12,22 +13,16 @@ import Navbar from "./components/NavBar";
 import RiskProfile from "./components/risk-profile";
 import { Toaster } from "./components/ui/toaster";
 import { useUpstoxAuth } from "./hooks/useUpstoxAuth";
-
-type AuthToken = string | null;
-
-const useAuth = () => {
-  const token: AuthToken = localStorage.getItem("token");
-  return token ? true : false;
-};
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
-  const auth = useAuth();
+  const { currentUser, userData } = useAuth();
   
   // Monitor Upstox authentication status
   useUpstoxAuth();
   
-  if (!auth) {
-    return <Navigate to="/login" replace />;
+  if (!currentUser) {
+    return <Navigate to="/auth/login" replace />;
   }
   return (
     <>
@@ -41,8 +36,9 @@ const ProtectedRoute: React.FC<{ children: JSX.Element }> = ({ children }) => {
 const App: React.FC = () => {
   return (
     <Provider>
-      <BrowserRouter>
-        <Routes>
+      <AuthProvider>
+        <BrowserRouter>
+          <Routes>
           <Route
             path="/"
             element={
@@ -51,7 +47,9 @@ const App: React.FC = () => {
               </ProtectedRoute>
             }
           />
-          <Route path="/login" element={<Login />} />
+          <Route path="/login" element={<Navigate to="/auth/login" replace />} />
+          <Route path="/auth/login" element={<Login />} />
+          <Route path="/auth/signup" element={<Signup />} />
 
           <Route
             path="/orders"
@@ -119,7 +117,8 @@ const App: React.FC = () => {
           {/* Catch-All Route */}
           <Route path="*" element={<NotFound />} />
         </Routes>
-      </BrowserRouter>
+        </BrowserRouter>
+      </AuthProvider>
     </Provider>
   );
 };

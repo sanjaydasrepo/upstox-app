@@ -28,7 +28,6 @@ import { Button } from "@/components/ui/button";
 import axiosInstanceBk from "@/utils/axiosConfigBk";
 import {
   useCreateTradingAccount,
-  useCreateTradingCredentials,
   useTradingAccountsByUser,
   useUser,
 } from "@/hooks/strapiHooks";
@@ -40,7 +39,6 @@ import {
   StrapiArrayResponse,
   StrapiResponse,
   TradingAccount,
-  TradingCredential,
 } from "@/types/strapiTypes";
 
 export interface AccountFormData {
@@ -55,6 +53,8 @@ export interface AccountFormData {
 export interface Payload {
   account_type: "zerodha" | "upstox";
   broker: string;
+  displayBrokerName: string;
+  initial_balance?: number;
   credentials: {
     api_key: string;
     api_secret: string;
@@ -75,16 +75,30 @@ const Account: React.FC = () => {
 
   const saveAccountDetails = async (formData: AccountFormData) => {
     try {
+      // Map accountType to proper broker name and display name
+      const brokerMapping: Record<string, { broker: string; displayName: string }> = {
+        upstox: { broker: "upstox", displayName: "Upstox" },
+        zerodha: { broker: "zerodha", displayName: "Zerodha" }
+      };
+      
+      const brokerInfo = brokerMapping[formData.accountType];
+      
+      if (!brokerInfo) {
+        throw new Error(`Unsupported account type: ${formData.accountType}`);
+      }
+      
       const payload: Payload = {
-        account_type: formData.accountType,
-        broker: formData.accountType,
+        account_type: formData.accountType as "zerodha" | "upstox",
+        broker: brokerInfo.broker,
+        displayBrokerName: formData.displayBrokerName || brokerInfo.displayName,
+        initial_balance: 100000, // Default demo balance
         credentials: {
           api_key: formData.apiKey,
           access_token: "",
           api_secret: formData.secret,
         },
       };
-
+      
       const resp = await createTradingAccount(payload);
       return resp;
     } catch (error) {
@@ -97,18 +111,12 @@ const Account: React.FC = () => {
     const apiKeyValidation = async (value: any) => {
       if (!value || isTradingLoadingAcccount) return true;
       try {
-        const resp = await axiosInstance.get<
-          StrapiArrayResponse<TradingCredential>
-        >(`/trading-credentials?filters[api_key]=${value}`);
-        if (
-          resp.data.data.length > 0 &&
-          tradingAccounts?.data &&
-          tradingAccounts?.data?.length > 0
-        ) {
-          const linkedAccs = tradingAccounts.data.filter(
-            (td) => td.account_type === "live" && td.isLinkedWithBrokerAccount
-          );
-          if (linkedAccs.length > 0) {
+        const resp = await axiosInstance.get(
+          `http://localhost:3005/trading-accounts/validate-api-key/${value}`
+        );
+        
+        if (resp.data.exists) {
+          if (resp.data.hasLinkedAccounts) {
             return "Key already exists.";
           } else {
             // setReconnectAccount();
@@ -140,13 +148,18 @@ const Account: React.FC = () => {
 
       console.log(`console `, accResp);
       if (accResp) {
-        const resp = await axiosInstanceBk.post("/auth/upstox");
-        console.log("resp is ", resp);
+        console.log('✅ Trading account created successfully, requesting Upstox auth URL...');
+        
+        // Use axiosInstance (not axiosInstanceBk) since the endpoint now requires Firebase auth
+        const resp = await axiosInstance.post("http://localhost:3005/auth/upstox");
+        console.log("Upstox auth response:", resp);
 
-        if (resp.status === 200) {
+        if (resp.status === 200 && resp.data.url) {
+          console.log('✅ Got Upstox auth URL, redirecting...');
           window.location.href = resp.data.url;
         } else {
-          console.error("Error connecting account", resp);
+          console.error("Error getting Upstox auth URL:", resp.data);
+          alert(`Failed to get Upstox auth URL: ${resp.data.error || 'Unknown error'}`);
         }
       }
     } catch (error) {
@@ -177,7 +190,7 @@ const Account: React.FC = () => {
                 control={form.control}
                 rules={{ required: true }}
                 disabled={loading}
-                name="broker"
+                name="accountType"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Account Type</FormLabel>

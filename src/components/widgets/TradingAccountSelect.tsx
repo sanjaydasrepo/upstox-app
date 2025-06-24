@@ -38,39 +38,74 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
     (acc) => acc.documentId === selectedBroker
   );
 
+
   console.log("TradingAccountSelect: Props received", {
     selectedBroker,
     tradingAccountsLength: tradingAccounts.length,
     selectedAccount,
-    accountType
+    accountType,
+    firstAccount: tradingAccounts[0],
+    accountFields: tradingAccounts[0] ? Object.keys(tradingAccounts[0]) : [],
+    currentBalance: selectedAccount?.current_balance,
+    displayName: selectedAccount?.name,
+    allAccounts: tradingAccounts.map(acc => ({
+      id: acc.documentId,
+      name: acc.name,
+      accountType: acc.accountType,
+      liveBalance: acc.currentBalance || acc.current_balance,
+      demoBalance: (acc as any).pairedDemoAccount?.currentBalance,
+      pairedDemo: (acc as any).pairedDemoAccount ? {
+        id: (acc as any).pairedDemoAccount.id,
+        balance: (acc as any).pairedDemoAccount.currentBalance
+      } : 'No paired demo account found'
+    }))
   });
   
   const generateNumberedBrokerOptions = (
     tradingAccounts: TradingAccount[]
   ): BrokerOption[] => {
-    const brokerCounts: Record<string, number> = {};
+    console.log('🔍 TradingAccountSelect: All trading accounts:', tradingAccounts);
+    
+    // Group accounts by broker
+    const brokerGroups: Record<string, TradingAccount[]> = {};
+    
+    tradingAccounts.forEach((account) => {
+      const brokerName = account.broker || 'upstox';
+      if (!brokerGroups[brokerName]) {
+        brokerGroups[brokerName] = [];
+      }
+      brokerGroups[brokerName].push(account);
+    });
 
-    const numberedBrokers = tradingAccounts
-      .filter((td) => td.account_type === "live" && td.isLinkedWithBrokerAccount )
-      .map((account) => {
-        const brokerName = account.broker;
+    console.log('🔍 TradingAccountSelect: Broker groups:', brokerGroups);
 
-        if (!brokerCounts[brokerName]) {
-          brokerCounts[brokerName] = 1;
-        }
+    // Create broker options - one per broker, using the live account ID as value
+    const brokerOptions: BrokerOption[] = Object.entries(brokerGroups).map(([brokerName, accounts]) => {
+      // Find the live account for this broker (use as the primary reference)
+      const liveAccount = accounts.find(acc => acc.accountType === 'live' || acc.account_type === 'live');
+      const accountToUse = liveAccount || accounts[0]; // Fallback to first account if no live account
 
-        const displayName = `${brokerName} ${brokerCounts[brokerName]}`;
-
-        brokerCounts[brokerName]++;
-
-        return {
-          value: account.documentId,
-          originalBroker: brokerName,
-          displayName,
-        };
+      console.log(`🔍 Creating broker option for ${brokerName}:`, {
+        brokerName,
+        accountsCount: accounts.length,
+        liveAccount: !!liveAccount,
+        selectedAccountId: accountToUse?.documentId,
+        accounts: accounts.map(acc => ({
+          id: acc.documentId,
+          type: acc.accountType || acc.account_type,
+          name: acc.name
+        }))
       });
 
-    return numberedBrokers;
+      return {
+        value: accountToUse?.documentId || '',
+        originalBroker: brokerName,
+        displayName: brokerName.charAt(0).toUpperCase() + brokerName.slice(1), // Capitalize broker name
+      };
+    });
+
+    console.log('🔍 TradingAccountSelect: Final broker options:', brokerOptions);
+    return brokerOptions;
   };
 
   const brokerOptions: BrokerOption[] =
@@ -78,14 +113,14 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
 
     console.log("Trading accounts ", brokerOptions  );
   
-  const selectedBrokerAccounts = tradingAccounts.filter(
-    (acc) => acc.documentId === selectedBroker
-  );
 
   const getCurrentBalance = (): number => {
+    if (!selectedAccount) return 0;
+
     const accountBal = accountType
-      ? selectedAccount?.current_balance
-      : selectedAccount?.demo_account?.current_balance;
+      ? (selectedAccount.currentBalance || selectedAccount.current_balance) // Live account balance
+      : ((selectedAccount as any).pairedDemoAccount?.currentBalance); // Demo account balance from paired account
+    
     return accountBal || 0;
   };
   const formatCurrency = (amount: number): string => {
@@ -112,6 +147,7 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
       >
         <Plus />
       </Button>
+      
       <div className="flex gap-2 flex-grow items-center">
         <div className="flex flex-col items-center flex-1">
           <div className="flex text-white items-center justify-center gap-2">
@@ -145,13 +181,13 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
               <SelectValue placeholder="Select Trading Account" />
             </SelectTrigger>
             <SelectContent className="border-0 bg-[#0A1623] text-white">
-              {tradingAccounts.map((broker) => (
+              {brokerOptions.map((brokerOption) => (
                 <SelectItem
-                  key={broker.documentId}
-                  value={broker.documentId || ""}
+                  key={brokerOption.value}
+                  value={brokerOption.value || ""}
                   className="hover:bg-[#1E293B] hover:text-white focus:bg-[#1E293B] focus:text-white"
                 >
-                  {broker.displayBrokerName}
+                  {brokerOption.displayName}
                 </SelectItem>
               ))}
             </SelectContent>

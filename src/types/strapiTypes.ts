@@ -64,19 +64,78 @@ export interface Portfolio {
 }
 
 export interface RiskSetting {
-  max_position_size: number;
-  max_loss_per_trade: number;
-  daily_loss_limit: number;
-  margin_call_threshold: number;
+  // Prisma fields
+  id?: string;
+  userId?: string;
   name: string;
-  daily_profit_target: number;
-  enforce_stop_loss: boolean;
-  max_trades_per_hour: number;
-  documentId?:string;
+  active?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+
+  // Strapi compatibility
+  documentId?: string;
+  
+  // Position size limits
+  max_position_size?: number;
+  maxPositionSize?: number;
+  maxPositionSizePercentage?: number;
+  maxLotsPerTrade?: number;
+  maxOpenPositions?: number;
+
+  // Loss limits
+  max_loss_per_trade?: number;
+  maxLossPerTrade?: number;
+  daily_loss_limit?: number;
+  dailyLossLimit?: number;
+  weeklyLossLimit?: number;
+  maxConsecutiveLosses?: number;
+  maxDrawdownToProfitRatio?: number;
+
+  // Profit targets
+  daily_profit_target?: number;
+  dailyProfitTarget?: number;
+  minRiskToRewardRatio?: number;
+  minWinRatePercentage?: number;
+
+  // Margin controls
+  margin_call_threshold?: number;
+  marginCallThreshold?: number;
+  marginUtilizationAlertPercentage?: number;
+
+  // Trade execution controls
+  enforce_stop_loss?: boolean;
+  enforceStopLoss?: boolean;
+  enforceTakeProfit?: boolean;
+  stopLossBufferPoints?: number;
+  takeProfitBufferPoints?: number;
+
+  // Time constraints
+  max_trades_per_hour?: number;
+  maxTradesPerHour?: number;
+  maxHoldTimeMinutes?: number;
+  restrictedHoursFrom?: string | Date;
+  restrictedHoursTo?: string | Date;
+  coolingOffMinutesAfterLosses?: number;
+  overtradingLimitTradesPer30Minutes?: number;
+
+  // Market condition filters
+  maxAllowedVolatility?: number;
+  avoidHighIv?: boolean;
+  preferredExpiryDayTrading?: boolean;
+  avoidTradeOnEventDays?: boolean;
+
+  // Alerts
+  alertThresholdPercentage?: number;
+  tradeLimitAlert?: boolean;
+  autoSuspendThreshold?: boolean;
+
+  // Sharing settings
+  isShared?: boolean;
+  severity?: string;
+
+  // Relations
   trading_account?: TradingAccount;
-  severity:string;
-  users?:any;
-  active?:boolean;
+  users?: any;
 }
 
 export interface Trade {
@@ -92,24 +151,51 @@ export interface Trade {
 
 export interface TradingAccount {
   id?: number;
-  name: string;
-  displayBrokerName?:string;
+  name?: string;
+  displayBrokerName?: string;
   documentId?: string;
+  
+  // Strapi format (snake_case)
   account_type?: AccountType;
   account_status?: AccountStatus;
   initial_balance?: number;
   current_balance?: number;
+  isLinkedWithBrokerAccount?: boolean;
   
-  broker: BrokerType;
+  // NestJS/Prisma format (camelCase) - for compatibility during migration
+  accountType?: string;
+  accountStatus?: string;
+  initialBalance?: number;
+  currentBalance?: number;
+  isLinked?: boolean;
+  
+  // Token validation fields (from new backend implementation)
+  tokenStatus?: 'valid' | 'expired' | 'missing' | 'no_credential';
+  requiresReconnection?: boolean;
+  credentialId?: string;
+  
+  broker?: BrokerType;
   user?: any;
   trading_credential?: TradingCredential;
   trades?: Trade[];
   portfolio?: Portfolio;
   risk_setting?: RiskSetting;
-
-  isLinkedWithBrokerAccount?: boolean
-
   demo_account?: TradingAccount;
+  
+  // Paired accounts for demo/live toggle functionality
+  pairedLiveAccount?: TradingAccount;
+  pairedDemoAccount?: TradingAccount;
+  
+  // Error information for expired tokens
+  error?: {
+    status: number;
+    name: string;
+    message: string;
+    details: {
+      action: string;
+      broker?: string;
+    };
+  };
 }
 
 export interface TradingCredential {

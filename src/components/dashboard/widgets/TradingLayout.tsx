@@ -5,6 +5,7 @@ import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerTrigger } from 
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import StrikePricesDisplay from './StrikePrices';
+import RiskProfileDisplay from './RiskProfileDisplay';
 
 interface Trade {
   price: number;
@@ -18,18 +19,14 @@ export default function TradingLayout() {
 
   return (
     <div className="h-screen w-full bg-background">
+      {/* Risk Profile Display */}
+      <RiskProfileDisplay />
+      
       <div className="flex justify-between items-center p-4 border-b">
         <div className="flex items-center gap-2">
           <span>Mood</span>
           <Switch />
           <span>Playful</span>
-        </div>
-        <div className="flex items-center gap-4">
-          <div>max position size: 12000/11500</div>
-          <div>max loss: 1200/-900</div>
-          <div>daily loss: -800/-900</div>
-          <div>max trades: 3/2</div>
-          <div>target profit: 2200/1800</div>
         </div>
         <div className="flex items-center gap-2">
           <span>Advance</span>
@@ -37,7 +34,7 @@ export default function TradingLayout() {
         </div>
       </div>
 
-      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-64px)]">
+      <ResizablePanelGroup direction="horizontal" className="h-[calc(100vh-128px)]">
         <ResizablePanel defaultSize={50} className="p-4">
           <h2 className="text-xl font-bold mb-4">Trade here</h2>
           <div className="space-y-4">

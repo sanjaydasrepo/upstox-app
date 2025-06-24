@@ -381,11 +381,16 @@ const RiskProfile: React.FC = () => {
         users: [user?.id],
       });
       console.log("Processed data:", resp);
-      if (resp.status === 201) {
+      // Check if risk setting was created successfully
+      if (resp && (resp.id || resp.documentId)) {
+        console.log("✅ Risk setting created successfully, redirecting to dashboard...");
         setTimeout(() => {
           setLoading(false);
           navigate(`/`);
         }, 1500);
+      } else {
+        console.error("❌ Unexpected response format:", resp);
+        setLoading(false);
       }
     } catch (error) {
       console.error("Error processing form:", error);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import io from 'socket.io-client';
+import axiosInstance from '@/utils/axiosConfig';
 
 interface OptionData {
   instrument_key: string;
@@ -39,69 +40,75 @@ const StrikeRow: React.FC<StrikeRowProps> = ({
 
   return (
     <div 
-      className={`relative flex items-center justify-center py-3 px-4 border-b border-gray-200 cursor-pointer transition-all duration-200 ${
+      className={`w-full border-b border-gray-200 cursor-pointer transition-all duration-200 ${
         isATM 
-          ? 'bg-yellow-50 border-yellow-300 font-bold text-lg' 
-          : 'hover:bg-gray-50'
+          ? 'bg-yellow-100 border-yellow-400' 
+          : showOptions 
+            ? 'bg-blue-100 border-blue-400' 
+            : 'hover:bg-gray-50'
       }`}
       onMouseEnter={() => setShowOptions(true)}
       onMouseLeave={() => setShowOptions(false)}
     >
-      {/* Strike Price */}
-      <div className={`text-center ${isATM ? 'text-yellow-800' : 'text-gray-800'}`}>
-        {strike}
-        {isATM && <span className="ml-2 text-xs text-yellow-600">(ATM)</span>}
-      </div>
-
-      {/* Options overlay */}
-      {showOptions && (ceOption || peOption) && (
-        <div className="absolute left-0 right-0 top-0 bottom-0 flex items-center justify-between bg-white border border-gray-300 shadow-lg z-10">
-          {/* PE Option (Left side) */}
-          <div className="flex-1 flex justify-center">
-            {peOption && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onOptionSelect(peOption, 'BUY')}
-                  className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600 transition-colors"
-                >
-                  BUY PE
-                </button>
-                <button
-                  onClick={() => onOptionSelect(peOption, 'SELL')}
-                  className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 transition-colors"
-                >
-                  SELL PE
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Strike Price in center */}
-          <div className={`px-4 font-semibold ${isATM ? 'text-yellow-800' : 'text-gray-800'}`}>
+      <div className="w-full grid grid-cols-3 py-3 px-4">
+        {/* PUT (PE) Section - Left Side */}
+        <div className="flex items-center justify-center min-w-0">
+          {showOptions && peOption ? (
+            <div className="flex gap-1">
+              <button
+                onClick={() => onOptionSelect(peOption, 'BUY')}
+                className="w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded hover:bg-blue-600 transition-colors flex items-center justify-center"
+              >
+                B
+              </button>
+              <button
+                onClick={() => onOptionSelect(peOption, 'SELL')}
+                className="w-6 h-6 bg-red-500 text-white text-xs font-bold rounded hover:bg-red-600 transition-colors flex items-center justify-center"
+              >
+                S
+              </button>
+            </div>
+          ) : (
+            <div className="text-gray-500 text-xs text-center">
+              {peOption ? 'PE' : '-'}
+            </div>
+          )}
+        </div>
+        
+        {/* Strike Price (Center) */}
+        <div className={`flex items-center justify-center min-w-0 ${
+          isATM ? 'text-yellow-800 font-bold text-base' : 'text-gray-900 font-semibold'
+        }`}>
+          <div className="text-center">
             {strike}
-          </div>
-
-          {/* CE Option (Right side) */}
-          <div className="flex-1 flex justify-center">
-            {ceOption && (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => onOptionSelect(ceOption, 'BUY')}
-                  className="px-3 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600 transition-colors"
-                >
-                  BUY CE
-                </button>
-                <button
-                  onClick={() => onOptionSelect(ceOption, 'SELL')}
-                  className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
-                >
-                  SELL CE
-                </button>
-              </div>
-            )}
+            {isATM && <div className="text-xs text-yellow-600">ATM</div>}
           </div>
         </div>
-      )}
+        
+        {/* CALL (CE) Section - Right Side */}
+        <div className="flex items-center justify-center min-w-0">
+          {showOptions && ceOption ? (
+            <div className="flex gap-1">
+              <button
+                onClick={() => onOptionSelect(ceOption, 'BUY')}
+                className="w-6 h-6 bg-blue-500 text-white text-xs font-bold rounded hover:bg-blue-600 transition-colors flex items-center justify-center"
+              >
+                B
+              </button>
+              <button
+                onClick={() => onOptionSelect(ceOption, 'SELL')}
+                className="w-6 h-6 bg-red-500 text-white text-xs font-bold rounded hover:bg-red-600 transition-colors flex items-center justify-center"
+              >
+                S
+              </button>
+            </div>
+          ) : (
+            <div className="text-gray-500 text-xs text-center">
+              {ceOption ? 'CE' : '-'}
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };
@@ -115,7 +122,7 @@ const StrikePricesDisplay: React.FC = () => {
 
   // Initialize WebSocket connection
   useEffect(() => {
-    const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:3001';
+    const BASE_URL = process.env.REACT_APP_BASE_URL || 'http://localhost:3005';
     const newSocket = io(BASE_URL);
     
     setSocket(newSocket);
@@ -138,7 +145,7 @@ const StrikePricesDisplay: React.FC = () => {
     });
 
     // Listen for strike prices updates
-    newSocket.on('strikePricesUpdate', (data: StrikePrices) => {
+    newSocket.on('strikePrices', (data: StrikePrices) => {
       console.log('Received strike prices:', data);
       setStrikePrices(data);
     });
@@ -159,26 +166,13 @@ const StrikePricesDisplay: React.FC = () => {
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
-      
-      const response = await fetch('http://localhost:3002/upstox/subscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          method: 'sub',
-          instrumentKeys: [
-            'NSE_INDEX|Nifty 50'
-          ],
-          mode: 'ltpc'
-        }),
+      const response = await axiosInstance.post('/upstox/subscribe', {
+        method: 'sub',
+        instrumentKeys: [
+          'NSE_INDEX|Nifty 50'
+        ],
+        mode: 'ltpc'
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to subscribe to strike prices');
-      }
 
       console.log('Successfully subscribed to strike prices');
     } catch (err: any) {
@@ -196,7 +190,7 @@ const StrikePricesDisplay: React.FC = () => {
     alert(`${action} ${option.instrument_type} option at strike ${option.strike_price}`);
   }, []);
 
-  // Create ordered strike list for display
+  // Create ordered strike list for display - ATM in center, OTM above, ITM below
   const getOrderedStrikes = useCallback((): Array<{strike: number, isATM: boolean, ceOption?: OptionData, peOption?: OptionData}> => {
     if (!strikePrices) return [];
 
@@ -221,12 +215,20 @@ const StrikePricesDisplay: React.FC = () => {
       }
     });
 
-    // Sort strikes in descending order (highest to lowest)
-    const sortedStrikes = Array.from(allStrikes).sort((a, b) => b - a);
+    const atmStrike = strikePrices.atmStrike;
+    const sortedStrikes = Array.from(allStrikes).sort((a, b) => a - b);
+    
+    // Separate strikes: ATM in center, higher strikes (OTM calls) above, lower strikes (ITM calls) below
+    const otmStrikes = sortedStrikes.filter(s => s > atmStrike).sort((a, b) => b - a); // Descending for OTM
+    const itmStrikes = sortedStrikes.filter(s => s < atmStrike).sort((a, b) => b - a); // Descending for ITM
+    const atmStrikeArray = sortedStrikes.filter(s => s === atmStrike);
+    
+    // Order: OTM (high to low), ATM, ITM (high to low)
+    const orderedStrikes = [...otmStrikes, ...atmStrikeArray, ...itmStrikes];
 
-    return sortedStrikes.map(strike => ({
+    return orderedStrikes.map(strike => ({
       strike,
-      isATM: strike === strikePrices.atmStrike,
+      isATM: strike === atmStrike,
       ceOption: strikeMap.get(strike)?.ce,
       peOption: strikeMap.get(strike)?.pe,
     }));
@@ -235,14 +237,14 @@ const StrikePricesDisplay: React.FC = () => {
   const orderedStrikes = getOrderedStrikes();
 
   return (
-    <div className="w-full max-w-md mx-auto bg-white rounded-lg shadow-lg">
+    <div className="w-full bg-white rounded-lg shadow-md border border-gray-200">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-4 rounded-t-lg">
+      <div className="bg-gray-50 border-b border-gray-200 p-3 rounded-t-lg">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Strike Prices</h2>
+          <h2 className="text-base font-semibold text-gray-900">NIFTY Strike Prices</h2>
           <div className="flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400' : 'bg-red-400'}`}></div>
-            <span className="text-sm">{isConnected ? 'Connected' : 'Disconnected'}</span>
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className="text-xs text-gray-600">{isConnected ? 'Live' : 'Disconnected'}</span>
           </div>
         </div>
         
@@ -250,9 +252,9 @@ const StrikePricesDisplay: React.FC = () => {
           <button
             onClick={subscribeToStrikePrices}
             disabled={isLoading || !isConnected}
-            className="mt-2 w-full py-2 px-4 bg-white text-blue-600 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="mt-2 w-full py-1.5 px-3 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {isLoading ? 'Subscribing...' : 'Subscribe to Strike Prices'}
+            {isLoading ? 'Subscribing...' : 'Subscribe to Live Prices'}
           </button>
         )}
       </div>
@@ -274,12 +276,12 @@ const StrikePricesDisplay: React.FC = () => {
 
       {/* Strike prices list */}
       {strikePrices && orderedStrikes.length > 0 && (
-        <div className="max-h-96 overflow-y-auto">
-          <div className="sticky top-0 bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 border-b">
-            <div className="flex justify-between items-center">
-              <span>PUT</span>
-              <span>STRIKE</span>
-              <span>CALL</span>
+        <div className="max-h-80 overflow-y-auto">
+          <div className="sticky top-0 bg-gradient-to-r from-red-100 via-gray-100 to-green-100 border-b-2 border-gray-300">
+            <div className="w-full grid grid-cols-3 py-3 px-4 text-xs font-bold text-gray-800">
+              <div className="text-center text-red-700">PUT (PE)</div>
+              <div className="text-center text-gray-900">STRIKE PRICE</div>
+              <div className="text-center text-green-700">CALL (CE)</div>
             </div>
           </div>
           

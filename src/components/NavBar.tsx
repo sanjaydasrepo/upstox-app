@@ -19,7 +19,7 @@ import {
   useUpdateTradingAccount,
   useUser,
 } from "@/hooks/strapiHooks";
-import { AccountStatus, RiskSetting } from "@/types/strapiTypes";
+import { AccountStatus, RiskSetting, TradingAccount } from "@/types/strapiTypes";
 
 interface NavbarProps {
   handleLogout: () => void;
@@ -90,7 +90,16 @@ const Navbar: React.FC = () => {
     console.log("NavBar: Trading accounts effect", { 
       isTradingLoadingAcccount, 
       tradingAccountsData: tradingAccounts?.data,
-      dataLength: tradingAccounts?.data?.length 
+      dataLength: tradingAccounts?.data?.length,
+      fullTradingAccounts: tradingAccounts,
+      accounts: tradingAccounts?.data?.map(acc => ({
+        id: acc.id,
+        documentId: acc.documentId,
+        name: acc.name,
+        broker: acc.broker,
+        accountType: acc.accountType,
+        isLinked: acc.isLinked
+      }))
     });
     
     if (isTradingLoadingAcccount) return;
@@ -103,17 +112,56 @@ const Navbar: React.FC = () => {
         (ta) => ta.documentId === savedSelectedAccount
       );
 
-      // If no saved account or saved account not found, select the first available account
+      // If no saved account or saved account not found, find the best account to select
       if (!activeAcc && tradingAccounts.data.length > 0) {
-        activeAcc = tradingAccounts.data[0];
-        console.log("NavBar: No saved account found, selecting first available:", activeAcc);
+        // Group accounts by broker to find the best broker
+        const brokerGroups: Record<string, TradingAccount[]> = {};
+        tradingAccounts.data.forEach(account => {
+          const broker = account.broker || 'upstox';
+          if (!brokerGroups[broker]) {
+            brokerGroups[broker] = [];
+          }
+          brokerGroups[broker].push(account);
+        });
+
+        // Find the best broker to select (prioritize linked and active accounts)
+        let bestBroker = '';
+        let bestScore = -1;
+
+        Object.entries(brokerGroups).forEach(([broker, accounts]: [string, TradingAccount[]]) => {
+          let score = 0;
+          const liveAccount = accounts.find((acc: TradingAccount) => 
+            acc.accountType === 'live' || acc.account_type === 'live'
+          );
+          
+          if (liveAccount) {
+            // Prioritize linked accounts
+            if (liveAccount.isLinked || liveAccount.isLinkedWithBrokerAccount) score += 10;
+            // Prioritize active accounts
+            if ((liveAccount as any).account_status === 'active' || (liveAccount as any).accountStatus === 'active') score += 5;
+          }
+          
+          if (score > bestScore) {
+            bestScore = score;
+            bestBroker = broker;
+            activeAcc = liveAccount || accounts[0];
+          }
+        });
+        
+        console.log("NavBar: No saved account found, selecting best broker:", {
+          selectedBroker: bestBroker,
+          selectedAccount: activeAcc,
+          accountStatus: (activeAcc as any)?.account_status || (activeAcc as any)?.accountStatus,
+          isLinked: (activeAcc as any)?.isLinked || (activeAcc as any)?.isLinkedWithBrokerAccount,
+          brokerGroups: Object.keys(brokerGroups)
+        });
       }
 
       if (activeAcc && activeAcc.documentId) {
         console.log("NavBar: Setting selected account:", activeAcc.documentId);
         setSelectedAccount(activeAcc.documentId);
         const isLiveActive =
-          activeAcc.account_status === "active" ? true : false;
+          ((activeAcc as any).account_status === "active" || (activeAcc as any).accountStatus === "active") ? true : false;
 
         setAccountType(isLiveActive);
         
@@ -124,12 +172,40 @@ const Navbar: React.FC = () => {
   }, [tradingAccounts, isTradingLoadingAcccount]);
 
   useEffect(() => {
+    console.log("NavBar: Risk profiles effect", { 
+      isLoadingRiskProfiles, 
+      riskProfilesData: riskProfiles?.data,
+      dataLength: riskProfiles?.data?.length,
+      fullRiskProfiles: riskProfiles,
+      profiles: riskProfiles?.data?.map(rp => ({
+        id: rp.id,
+        documentId: rp.documentId,
+        name: rp.name,
+        active: rp.active,
+        createdAt: rp.createdAt
+      }))
+    });
+    
     if (isLoadingRiskProfiles) return;
 
     if (riskProfiles && riskProfiles?.data?.length > 0) {
-      const activeRP = riskProfiles?.data?.find((rp) => rp.active);
-      if (activeRP && activeRP.documentId) {
-        setSelectedRiskProfile(activeRP.documentId);
+      // First try to find an active risk profile
+      let selectedRP = riskProfiles?.data?.find((rp) => rp.active);
+      
+      // If no active profile found, select the most recently created one
+      if (!selectedRP) {
+        selectedRP = riskProfiles.data.reduce((latest, current) => {
+          const currentDate = new Date(current.createdAt || 0);
+          const latestDate = new Date(latest.createdAt || 0);
+          return currentDate > latestDate ? current : latest;
+        });
+        
+        console.log('🔍 NavBar: No active risk profile found, selecting most recent:', selectedRP);
+      }
+      
+      if (selectedRP && selectedRP.documentId) {
+        console.log('🔍 NavBar: Setting selected risk profile:', selectedRP.documentId);
+        setSelectedRiskProfile(selectedRP.documentId);
       }
     }
   }, [riskProfiles, isLoadingRiskProfiles]);
@@ -158,7 +234,7 @@ const Navbar: React.FC = () => {
       (td) => td.documentId === value
     );
     const activeAccount =
-      liveAccount?.account_status === "active" ? true : false;
+      ((liveAccount as any)?.account_status === "active" || (liveAccount as any)?.accountStatus === "active") ? true : false;
     setAccountType(activeAccount);
     
     // Refetch accounts and handle potential token expiry

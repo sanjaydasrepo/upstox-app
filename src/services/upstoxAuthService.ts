@@ -20,9 +20,13 @@ class UpstoxAuthService {
 
   async checkTokenStatus(): Promise<TokenStatusResponse> {
     try {
+      const firebaseToken = localStorage.getItem('firebaseToken');
+      const legacyToken = localStorage.getItem('token');
+      const token = firebaseToken || legacyToken;
+      
       const response = await axios.get(`${this.baseUrl}/auth/token-status`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         }
       });
       return response.data;
@@ -42,9 +46,13 @@ class UpstoxAuthService {
     }
     try {
       console.log('🔍 Requesting reauth from NestJS:', `${this.baseUrl}/auth/reauth`);
+      const firebaseToken = localStorage.getItem('firebaseToken');
+      const legacyToken = localStorage.getItem('token');
+      const token = firebaseToken || legacyToken;
+      
       const response = await axios.get(`${this.baseUrl}/auth/reauth`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${token}`
         }
       });
       console.log('🔍 Reauth response:', response.data);
@@ -180,12 +188,16 @@ window.testUpstoxRedirect = () => upstoxAuthService.testRedirect();
 window.debugUpstoxAuth = async () => {
   console.log('🧪 Testing Upstox auth endpoints...');
   
+  const firebaseToken = localStorage.getItem('firebaseToken');
+  const legacyToken = localStorage.getItem('token');
+  const token = firebaseToken || legacyToken;
+  
   try {
     console.log('Testing /auth/reauth...');
     const reauthResponse = await fetch(`${process.env.REACT_APP_BASE_URL}/auth/reauth`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -200,7 +212,7 @@ window.debugUpstoxAuth = async () => {
     const upstoxResponse = await fetch(`${process.env.REACT_APP_BASE_URL}/auth/upstox`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
@@ -212,9 +224,9 @@ window.debugUpstoxAuth = async () => {
   
   try {
     console.log('Testing trading accounts fetch...');
-    const accountsResponse = await fetch(`${process.env.REACT_APP_ST_BASE_URL}/trading-accounts?filters[account_type]=live&filters[isLinkedWithBrokerAccount]=true&populate=demo_account`, {
+    const accountsResponse = await fetch(`${process.env.REACT_APP_BASE_URL}/trading-accounts`, {
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
