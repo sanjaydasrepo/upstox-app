@@ -18,15 +18,27 @@ const RiskProfileDisplay: React.FC = () => {
     );
   }
 
-  // Find active risk profile
-  const activeProfile = riskProfiles?.data?.find((profile: RiskSetting) => profile.active);
+  // Find active risk profile with fallback logic (same as NavBar)
+  let activeProfile = riskProfiles?.data?.find((profile: RiskSetting) => profile.active);
   
-  if (!activeProfile) {
+  // If no active profile found, select the most recently created one (fallback)
+  if (!activeProfile && riskProfiles?.data && riskProfiles.data.length > 0) {
+    activeProfile = riskProfiles.data.reduce((latest, current) => {
+      const currentDate = new Date(current.createdAt || 0);
+      const latestDate = new Date(latest.createdAt || 0);
+      return currentDate > latestDate ? current : latest;
+    });
+    
+    console.log('🔍 RiskProfileDisplay: No active risk profile found, selecting most recent:', activeProfile);
+  }
+  
+  // Only show error if no profiles exist at all
+  if (!activeProfile || !riskProfiles?.data || riskProfiles.data.length === 0) {
     return (
       <div className="bg-yellow-50 border-b border-yellow-200 p-4">
         <div className="text-center text-yellow-800">
-          <span className="font-medium">No active risk profile found</span>
-          <span className="ml-2 text-sm">Please activate a risk profile to continue trading</span>
+          <span className="font-medium">No risk profiles found</span>
+          <span className="ml-2 text-sm">Please create a risk profile to continue trading</span>
         </div>
       </div>
     );

@@ -121,6 +121,14 @@ const TradingAccountSelect: React.FC<TradingAccountSelectProps> = ({
       ? (selectedAccount.currentBalance || selectedAccount.current_balance) // Live account balance
       : ((selectedAccount as any).pairedDemoAccount?.currentBalance); // Demo account balance from paired account
     
+    console.log('💰 TradingAccountSelect: getCurrentBalance', {
+      accountType: accountType ? 'live' : 'demo',
+      selectedAccountId: selectedAccount.documentId,
+      liveBalance: selectedAccount.currentBalance || selectedAccount.current_balance,
+      demoBalance: (selectedAccount as any).pairedDemoAccount?.currentBalance,
+      calculatedBalance: accountBal || 0
+    });
+    
     return accountBal || 0;
   };
   const formatCurrency = (amount: number): string => {

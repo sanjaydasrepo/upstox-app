@@ -21,7 +21,7 @@ const Dashboard: React.FC = () => {
   
   // const { data: riskProfiles, isLoading: isLoadingRiskProfiles } = useRiskSettings(tAccIds);
   
-  const { data: user } = useUser();
+  const { data: user, isLoading: isLoadingUser } = useUser();
   
   const { data: tradingAccounts, isLoading } = useTradingAccountsByUser();
   const { data: riskProfiles, isLoading: isLoadingRiskProfiles } =
@@ -72,6 +72,23 @@ const Dashboard: React.FC = () => {
       navigate("/risk-profile/new", { replace: true });
     }
   }, [riskProfiles, tradingAccounts, isLoadingRiskProfiles, isLoading, navigate]);
+
+  // Show loader while loading data
+  if (isLoading || isLoadingRiskProfiles || isLoadingUser) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-solid border-gray-200 border-t-gray-900"></div>
+          <p className="mt-4 text-gray-600">Loading your dashboard...</p>
+          <p className="mt-2 text-sm text-gray-500">
+            {isLoadingUser && "Loading user data..."}
+            {!isLoadingUser && isLoading && "Checking trading accounts..."}
+            {!isLoadingUser && !isLoading && isLoadingRiskProfiles && "Loading risk profiles..."}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return <TradingLayout/>
 };

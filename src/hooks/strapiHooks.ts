@@ -211,6 +211,8 @@ export const useTradingAccountsByUser = () => {
 
   const queryResult = useQuery<StrapiArrayResponse<TradingAccount>>({
     queryKey: ["trading-accounts"],
+    staleTime: 5 * 60 * 1000, // 5 minutes - trading accounts don't change often
+    gcTime: 15 * 60 * 1000, // 15 minutes cache time
     queryFn: async () => {
       try {
         console.log('🔍 Fetching trading accounts from NestJS...');
@@ -753,6 +755,8 @@ export const useRiskSettingsByUser = (userId?: string) => {
   return useQuery<StrapiArrayResponse<RiskSetting>>({
     queryKey: ["risk-settings-by-filter"],
     enabled: !!user, // Enable based on user existence, not userId
+    staleTime: 3 * 60 * 1000, // 3 minutes - risk settings don't change very often
+    gcTime: 10 * 60 * 1000, // 10 minutes cache time
     queryFn: async () => {
       try {
         console.log('🔍 Fetching risk settings via Firebase auth...');
@@ -815,10 +819,18 @@ export const useUpdateRiskSettings = () => {
         return null;
       }
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      console.log('✅ [RISK-PROFILE] Successfully updated, invalidating queries...');
+      
+      // Invalidate all risk settings related queries to ensure immediate UI updates
       queryClient.invalidateQueries({
         queryKey: ["risk-settings-by-filter"],
       });
+      queryClient.invalidateQueries({
+        queryKey: ["risk-settings"],
+      });
+      
+      console.log('🔄 [RISK-PROFILE] Queries invalidated, UI should update immediately');
     },
   });
 };

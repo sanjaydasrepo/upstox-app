@@ -20,6 +20,7 @@ import {
   useUser,
 } from "@/hooks/strapiHooks";
 import { AccountStatus, RiskSetting, TradingAccount } from "@/types/strapiTypes";
+import axiosInstance from "@/utils/axiosConfig";
 
 interface NavbarProps {
   handleLogout: () => void;
@@ -56,6 +57,41 @@ const Navbar: React.FC = () => {
       if (resp) {
         setAccountType(value);
         console.log('✅ NavBar: Account type updated to:', value);
+        
+        // Force refresh trading accounts data to get updated balances
+        refetchTdAccounts().then(() => {
+          console.log('✅ NavBar: Trading accounts data refreshed after account switch');
+        }).catch((error) => {
+          console.error('❌ NavBar: Failed to refresh trading accounts:', error);
+        });
+        
+        // If switching to live account, trigger additional data refreshes
+        if (value === true) {
+          console.log('🔄 NavBar: Switching to live account - triggering data refresh');
+          
+          // Request fresh margin/balance data for live account
+          refreshLiveAccountData();
+          
+          // Emit custom event to notify other components about account change
+          const accountChangeEvent = new CustomEvent('accountChange', {
+            detail: {
+              accountType: 'live',
+              accountId: selectedAccount,
+              timestamp: Date.now()
+            }
+          });
+          window.dispatchEvent(accountChangeEvent);
+        } else {
+          // Emit event for demo account switch too
+          const accountChangeEvent = new CustomEvent('accountChange', {
+            detail: {
+              accountType: 'demo',
+              accountId: selectedAccount,
+              timestamp: Date.now()
+            }
+          });
+          window.dispatchEvent(accountChangeEvent);
+        }
       } else {
         console.log('⚠️ NavBar: Account change returned null/undefined');
       }
@@ -78,6 +114,35 @@ const Navbar: React.FC = () => {
         alert('Token expired detected in NavBar! Check console for details.');
       }
     });
+  };
+
+  // Function to refresh live account data when switching to live mode
+  const refreshLiveAccountData = async () => {
+    try {
+      console.log('🔄 NavBar: Refreshing live account data...');
+      
+      // Make API call to refresh margin and balance data from Upstox
+      const response = await axiosInstance.post('/trading-accounts/refresh-live-data');
+      
+      console.log('✅ NavBar: Live account data refreshed:', response.data);
+      
+      // Force refresh trading accounts to update UI with new data
+      refetchTdAccounts();
+      
+    } catch (error: any) {
+      console.error('❌ NavBar: Failed to refresh live account data:', error);
+      
+      // Check if this is a token expiry error
+      const errorData = error.response?.data;
+      if (errorData && (
+        errorData.includes?.('Access token has expired') ||
+        errorData.includes?.('RECONNECT_REQUIRED') ||
+        JSON.stringify(errorData).includes('Access token has expired')
+      )) {
+        console.log('🚨 NavBar: Token expiry detected during live data refresh');
+        alert('Token expired while refreshing live data. Please reconnect your account.');
+      }
+    }
   };
 
   const selectedRiskProfileData = riskProfiles?.data?.find(
@@ -211,13 +276,18 @@ const Navbar: React.FC = () => {
   }, [riskProfiles, isLoadingRiskProfiles]);
 
   const handleChangeRiskProfile = (value: string) => {
-    console.log("auoaudsasd ", value);
+    console.log('🔄 [RISK-PROFILE] Changing risk profile to:', value);
+    
+    // Update in database with active flag
     updateRiskSetting({
       documentId: value,
+      active: true  // 🔑 This was missing - tells backend to set as active
     }).then(() => {
+      console.log('✅ [RISK-PROFILE] Successfully updated active risk profile in database');
       setSelectedRiskProfile(value);
-    }).catch(err=>{
-      console.log("api aerer ", err );
+    }).catch(err => {
+      console.error('❌ [RISK-PROFILE] Failed to update risk profile:', err);
+      // TODO: Show toast notification to user
     });
   };
   const handleAddRiskProfile = () => {
@@ -378,7 +448,8 @@ const Navbar: React.FC = () => {
                         <Select
                           value={selectedRiskProfile}
                           onValueChange={(value: string) => {
-                            setSelectedRiskProfile(value);
+                            // 🔄 Use same handler as desktop for consistency
+                            handleChangeRiskProfile(value);
                             localStorage.setItem("default-profile", value);
                           }}
                         >

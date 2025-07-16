@@ -9,6 +9,29 @@ const axiosInstance: AxiosInstance = axios.create({
   },
 });
 
+// Global handler for Firebase token errors
+let authContextHandler: (() => Promise<void>) | null = null;
+
+export const setAuthContextHandler = (handler: () => Promise<void>) => {
+  authContextHandler = handler;
+};
+
+const isFirebaseTokenError = (error: any): boolean => {
+  const errorMessage = error?.message || '';
+  const responseData = error?.response?.data || {};
+  const responseText = typeof responseData === 'string' ? responseData : JSON.stringify(responseData);
+  
+  return (
+    errorMessage.includes('Firebase ID token has expired') ||
+    errorMessage.includes('Invalid or expired Firebase token') ||
+    errorMessage.includes('auth/id-token-expired') ||
+    errorMessage.includes('auth/argument-error') ||
+    responseText.includes('Firebase ID token has expired') ||
+    responseText.includes('Invalid or expired Firebase token') ||
+    (error?.response?.status === 401 && responseText.includes('Firebase'))
+  );
+};
+
 axiosInstance.interceptors.request.use((config) => {
   // Try Firebase token first, fallback to legacy token
   const firebaseToken = localStorage.getItem('firebaseToken');
@@ -24,11 +47,29 @@ axiosInstance.interceptors.request.use((config) => {
 
 // Response interceptor to handle token expiration
 axiosInstance.interceptors.response.use(
-  (response) => {
+  async (response) => {
     // Check for error objects in successful responses (status 200 but contains error)
     if (response.status === 200 && response.data?.error) {
       const errorData = response.data.error;
       console.log('🔍 200 Response with error object detected:', errorData);
+      
+      // Check if this is a Firebase token error first
+      const mockError = { response: { data: response.data, status: 200 } };
+      if (isFirebaseTokenError(mockError)) {
+        console.warn('🚨 Firebase token error detected in 200 response, handling logout...');
+        if (authContextHandler) {
+          try {
+            await authContextHandler();
+          } catch (handlerError) {
+            console.error('❌ Error in auth handler:', handlerError);
+          }
+        }
+        
+        // Create proper error for Firebase token error
+        const error = new Error('Firebase token expired');
+        (error as any).response = { status: 401, data: response.data };
+        return Promise.reject(error);
+      }
       
       // Check if this is an Upstox token error
       const isUpstoxTokenError = (
@@ -112,6 +153,24 @@ axiosInstance.interceptors.response.use(
       url: error.config?.url,
       method: error.config?.method
     });
+
+    // Check for Firebase token errors first
+    if (isFirebaseTokenError(error)) {
+      console.warn('🚨 Firebase token error detected, handling logout...');
+      if (authContextHandler) {
+        try {
+          await authContextHandler();
+        } catch (handlerError) {
+          console.error('❌ Error in auth handler:', handlerError);
+        }
+      } else {
+        console.warn('⚠️ No auth handler available, manual logout required');
+        // Fallback: clear storage and redirect
+        localStorage.clear();
+        window.location.href = '/login';
+      }
+      return Promise.reject(error);
+    }
 
     // Check if the error is related to Upstox token expiration
     if (error.response?.status === 401 || error.response?.status === 403) {

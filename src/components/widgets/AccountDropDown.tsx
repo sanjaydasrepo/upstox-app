@@ -17,16 +17,25 @@ import {
 import { useUser } from "@/hooks/strapiHooks";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 
 export function AccountDropDown() {
   const { data: user } = useUser();
-
+  const { logout } = useAuth();
   const navigate = useNavigate();
   
-  const handleLogout = () => {
-    console.log("logout is ");
-    localStorage.setItem("token", "");
-    navigate("/login", { replace: true });
+  const handleLogout = async () => {
+    try {
+      console.log("🚪 Starting logout process...");
+      await logout();
+      console.log("✅ Logout successful, redirecting to login");
+      navigate("/login", { replace: true });
+    } catch (error) {
+      console.error("❌ Logout failed:", error);
+      // Fallback: Clear storage and redirect anyway
+      localStorage.clear();
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
